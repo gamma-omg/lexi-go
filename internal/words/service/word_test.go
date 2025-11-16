@@ -86,7 +86,7 @@ func TestDeleteWord(t *testing.T) {
 	}
 
 	service := &WordService{store: mockStore}
-	wordID := uuid.NewString()
+	wordID := int64(12345)
 
 	err := service.DeleteWord(context.Background(), wordID)
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestDeleteWord_NotFound(t *testing.T) {
 	}
 
 	service := &WordService{store: mockStore}
-	wordID := uuid.NewString()
+	wordID := int64(12345)
 
 	err := service.DeleteWord(context.Background(), wordID)
 	require.Error(t, err)
@@ -113,5 +113,5 @@ func TestDeleteWord_NotFound(t *testing.T) {
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
-	require.Equal(t, wordID, se.Env["word_id"])
+	require.Equal(t, "12345", se.Env["word_id"])
 }

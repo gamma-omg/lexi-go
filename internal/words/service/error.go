@@ -13,7 +13,7 @@ type ServiceError struct {
 	Env        map[string]string
 }
 
-func NewServiceError(err error, statusCode int, msg string, args ...interface{}) *ServiceError {
+func NewServiceError(err error, statusCode int, msg string, args ...any) *ServiceError {
 	return &ServiceError{
 		Err:        err,
 		Msg:        fmt.Sprintf(msg, args...),

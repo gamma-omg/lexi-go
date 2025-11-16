@@ -50,11 +50,11 @@ func (s *WordService) AddWord(ctx context.Context, r WordAddRequest) (id string,
 }
 
 // DeleteWord deletes a word by its ID. If the word is not found, it returns a ServiceError with status code 404.
-func (s *WordService) DeleteWord(ctx context.Context, id string) error {
+func (s *WordService) DeleteWord(ctx context.Context, id int64) error {
 	if err := s.store.DeleteWord(ctx, store.WordDeleteRequest{ID: id}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			se := NewServiceError(err, http.StatusNotFound, "word not found")
-			se.Env["word_id"] = id
+			se.Env["word_id"] = fmt.Sprintf("%d", id)
 			return se
 		}
 

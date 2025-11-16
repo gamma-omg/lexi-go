@@ -16,35 +16,30 @@ var (
 type userStore interface {
 	CreateUserPick(ctx context.Context, r store.UserPickCreateRequest) error
 	DeleteUserPick(ctx context.Context, r store.UserPickDeleteRequest) error
-	GetOrCreateTag(ctx context.Context, tag string) (string, error)
+	GetOrCreateTag(ctx context.Context, tag string) (int64, error)
 	AddTag(ctx context.Context, r store.UserPickAddTagRequest) error
 	RemoveTag(ctx context.Context, r store.UserPickRemoveTagRequest) error
 }
 
 // UserService provides access to user-specific word operations such as picking words and managing tags.
 type UserService struct {
-	UserID string
+	UserID int64
 	store  userStore
 }
 
 type UserPickWordRequest struct {
-	WordID string
-	DefID  string
-}
-
-type UserUnpickWordRequest struct {
-	WordID string
-	DefID  string
+	WordID int64
+	DefID  int64
 }
 
 type UserPickAddTagRequest struct {
-	PickID string
+	PickID int64
 	Tag    string
 }
 
 type UserPickRemoveTagRequest struct {
-	PickID string
-	TagID  string
+	PickID int64
+	TagID  int64
 }
 
 // PickWord allows a user to pick a word definition for learning. If the pick already exists, it returns a ServiceError
@@ -52,14 +47,13 @@ type UserPickRemoveTagRequest struct {
 func (s *UserService) PickWord(ctx context.Context, r UserPickWordRequest) error {
 	if err := s.store.CreateUserPick(ctx, store.UserPickCreateRequest{
 		UserID: s.UserID,
-		WordID: r.WordID,
 		DefID:  r.DefID,
 	}); err != nil {
 		if errors.Is(err, store.ErrExists) {
 			se := NewServiceError(err, http.StatusConflict, "user pick already exists")
-			se.Env["user_id"] = s.UserID
-			se.Env["word_id"] = r.WordID
-			se.Env["def_id"] = r.DefID
+			se.Env["user_id"] = fmt.Sprintf("%d", s.UserID)
+			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
+			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
 			return se
 		}
 	}
@@ -69,17 +63,11 @@ func (s *UserService) PickWord(ctx context.Context, r UserPickWordRequest) error
 
 // UnpickWord allows a user to unpick a previously picked word definition. If the pick does not exist, it returns a ServiceError
 // with status code 404.
-func (s *UserService) UnpickWord(ctx context.Context, r UserUnpickWordRequest) error {
-	if err := s.store.DeleteUserPick(ctx, store.UserPickDeleteRequest{
-		UserID: s.UserID,
-		WordID: r.WordID,
-		DefID:  r.DefID,
-	}); err != nil {
+func (s *UserService) UnpickWord(ctx context.Context, pickID int64) error {
+	if err := s.store.DeleteUserPick(ctx, store.UserPickDeleteRequest{PickID: pickID}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
-			se.Env["user_id"] = s.UserID
-			se.Env["word_id"] = r.WordID
-			se.Env["def_id"] = r.DefID
+			se.Env["pick_id"] = fmt.Sprintf("%d", pickID)
 			return se
 		}
 
@@ -102,7 +90,7 @@ func (s *UserService) AddTag(ctx context.Context, r UserPickAddTagRequest) error
 	}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
-			se.Env["pick_id"] = r.PickID
+			se.Env["pick_id"] = fmt.Sprintf("%d", r.PickID)
 			return se
 		}
 
@@ -120,8 +108,8 @@ func (s *UserService) RemoveTag(ctx context.Context, r UserPickRemoveTagRequest)
 	}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
-			se.Env["pick_id"] = r.PickID
-			se.Env["tag_id"] = r.TagID
+			se.Env["pick_id"] = fmt.Sprintf("%d", r.PickID)
+			se.Env["tag_id"] = fmt.Sprintf("%d", r.TagID)
 			return se
 		}
 

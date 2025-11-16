@@ -19,9 +19,9 @@ const (
 type DataSource string
 
 const (
-	Unknown DataSource = "unknown"
-	User    DataSource = "user"
-	AI      DataSource = "ai"
+	SrcUnknown DataSource = "unknown"
+	SrcUser    DataSource = "user"
+	SrcAI      DataSource = "ai"
 )
 
 type Model struct {
@@ -31,7 +31,7 @@ type Model struct {
 
 type Word struct {
 	Model
-	ID     string
+	ID     int64
 	Lemma  string
 	Lang   Lang
 	Class  WordClass
@@ -40,30 +40,36 @@ type Word struct {
 
 type Definition struct {
 	Model
-	ID     string
-	WordID string
+	ID     int64
+	WordID int64
 	Text   string
 	Source DataSource
 }
 
 type Example struct {
 	Model
-	ID     string
-	DefID  string
+	ID     int64
+	DefID  int64
 	Source DataSource
 }
 
 type Image struct {
 	Model
-	ID     string
-	WordID string
+	ID     int64
+	DefID  int64
 	URL    string
 	Source DataSource
 }
 
+type User struct {
+	Model
+	ID    int64
+	Email string
+}
+
 type UserPick struct {
 	Model
-	ID     string
-	WordID string
-	DefID  string
+	ID     int64
+	UserID int64
+	DefID  int64
 }

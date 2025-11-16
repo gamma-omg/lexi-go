@@ -9,31 +9,28 @@ type WordInsertRequest struct {
 }
 
 type WordInsertResponse struct {
-	ID string
+	ID int64
 }
 
 type WordDeleteRequest struct {
-	ID string
+	ID int64
 }
 
 type UserPickCreateRequest struct {
-	UserID string
-	WordID string
-	DefID  string
+	UserID int64
+	DefID  int64
 }
 
 type UserPickDeleteRequest struct {
-	UserID string
-	WordID string
-	DefID  string
+	PickID int64
 }
 
 type UserPickAddTagRequest struct {
-	PickID string
-	TagID  string
+	PickID int64
+	TagID  int64
 }
 
 type UserPickRemoveTagRequest struct {
-	PickID string
-	TagID  string
+	PickID int64
+	TagID  int64
 }

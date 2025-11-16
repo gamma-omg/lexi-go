@@ -14,7 +14,7 @@ type mockUserStore struct {
 	DeleteUserPickFunc func(ctx context.Context, r store.UserPickDeleteRequest) error
 	AddTagFunc         func(ctx context.Context, r store.UserPickAddTagRequest) error
 	RemoveTagFunc      func(ctx context.Context, r store.UserPickRemoveTagRequest) error
-	GetOrCreateTagFunc func(ctx context.Context, tag string) (string, error)
+	GetOrCreateTagFunc func(ctx context.Context, tag string) (int64, error)
 }
 
 func (m *mockUserStore) CreateUserPick(ctx context.Context, r store.UserPickCreateRequest) error {
@@ -33,7 +33,7 @@ func (m *mockUserStore) RemoveTag(ctx context.Context, r store.UserPickRemoveTag
 	return m.RemoveTagFunc(ctx, r)
 }
 
-func (m *mockUserStore) GetOrCreateTag(ctx context.Context, tag string) (string, error) {
+func (m *mockUserStore) GetOrCreateTag(ctx context.Context, tag string) (int64, error) {
 	return m.GetOrCreateTagFunc(ctx, tag)
 }
 
@@ -47,21 +47,20 @@ func TestPickWord(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  userStore,
 	}
 
 	err := userService.PickWord(context.Background(), UserPickWordRequest{
-		WordID: "word-456",
-		DefID:  "def-789",
+		WordID: 456,
+		DefID:  789,
 	})
 	require.NoError(t, err)
 
 	require.Len(t, createdPicks, 1)
 	require.Contains(t, createdPicks, store.UserPickCreateRequest{
-		UserID: "user-123",
-		WordID: "word-456",
-		DefID:  "def-789",
+		UserID: 123,
+		DefID:  789,
 	})
 }
 
@@ -73,22 +72,22 @@ func TestPickWord_Exists(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  userStore,
 	}
 
 	err := userService.PickWord(context.Background(), UserPickWordRequest{
-		WordID: "word-456",
-		DefID:  "def-789",
+		WordID: 456,
+		DefID:  789,
 	})
 	require.Error(t, err)
 
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusConflict, se.StatusCode)
-	require.Equal(t, "user-123", se.Env["user_id"])
-	require.Equal(t, "word-456", se.Env["word_id"])
-	require.Equal(t, "def-789", se.Env["def_id"])
+	require.Equal(t, "123", se.Env["user_id"])
+	require.Equal(t, "456", se.Env["word_id"])
+	require.Equal(t, "789", se.Env["def_id"])
 }
 
 func TestUnpickWord(t *testing.T) {
@@ -101,22 +100,15 @@ func TestUnpickWord(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  userStore,
 	}
 
-	err := userService.UnpickWord(context.Background(), UserUnpickWordRequest{
-		WordID: "word-456",
-		DefID:  "def-789",
-	})
+	err := userService.UnpickWord(context.Background(), 456)
 	require.NoError(t, err)
 
 	require.Len(t, deletedPicks, 1)
-	require.Contains(t, deletedPicks, store.UserPickDeleteRequest{
-		UserID: "user-123",
-		WordID: "word-456",
-		DefID:  "def-789",
-	})
+	require.Contains(t, deletedPicks, store.UserPickDeleteRequest{PickID: 456})
 }
 
 func TestUnpickWord_NotFound(t *testing.T) {
@@ -127,29 +119,24 @@ func TestUnpickWord_NotFound(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  userStore,
 	}
 
-	err := userService.UnpickWord(context.Background(), UserUnpickWordRequest{
-		WordID: "word-456",
-		DefID:  "def-789",
-	})
+	err := userService.UnpickWord(context.Background(), 456)
 	require.Error(t, err)
 
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
-	require.Equal(t, "user-123", se.Env["user_id"])
-	require.Equal(t, "word-456", se.Env["word_id"])
-	require.Equal(t, "def-789", se.Env["def_id"])
+	require.Equal(t, "456", se.Env["pick_id"])
 }
 
 func TestAddTag(t *testing.T) {
 	var addedTags []store.UserPickAddTagRequest
 	mockStore := &mockUserStore{
-		GetOrCreateTagFunc: func(ctx context.Context, tag string) (string, error) {
-			return "tag-123", nil
+		GetOrCreateTagFunc: func(ctx context.Context, tag string) (int64, error) {
+			return 789, nil
 		},
 		AddTagFunc: func(ctx context.Context, r store.UserPickAddTagRequest) error {
 			addedTags = append(addedTags, r)
@@ -158,11 +145,11 @@ func TestAddTag(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  mockStore,
 	}
 	req := UserPickAddTagRequest{
-		PickID: "pick-456",
+		PickID: 456,
 		Tag:    "important",
 	}
 
@@ -171,15 +158,15 @@ func TestAddTag(t *testing.T) {
 
 	require.Len(t, addedTags, 1)
 	require.Contains(t, addedTags, store.UserPickAddTagRequest{
-		PickID: "pick-456",
-		TagID:  "tag-123",
+		PickID: 456,
+		TagID:  789,
 	})
 }
 
 func TestAddTag_PickNotFound(t *testing.T) {
 	mockStore := &mockUserStore{
-		GetOrCreateTagFunc: func(ctx context.Context, tag string) (string, error) {
-			return "tag-123", nil
+		GetOrCreateTagFunc: func(ctx context.Context, tag string) (int64, error) {
+			return 789, nil
 		},
 		AddTagFunc: func(ctx context.Context, r store.UserPickAddTagRequest) error {
 			return store.ErrNotFound
@@ -187,11 +174,11 @@ func TestAddTag_PickNotFound(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  mockStore,
 	}
 	req := UserPickAddTagRequest{
-		PickID: "pick-456",
+		PickID: 456,
 		Tag:    "important",
 	}
 
@@ -201,7 +188,7 @@ func TestAddTag_PickNotFound(t *testing.T) {
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
-	require.Equal(t, "pick-456", se.Env["pick_id"])
+	require.Equal(t, "456", se.Env["pick_id"])
 }
 
 func TestRemoveTag(t *testing.T) {
@@ -214,12 +201,12 @@ func TestRemoveTag(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  mockStore,
 	}
 	req := UserPickRemoveTagRequest{
-		PickID: "pick-456",
-		TagID:  "tag-123",
+		PickID: 456,
+		TagID:  789,
 	}
 
 	err := service.RemoveTag(context.Background(), req)
@@ -227,8 +214,8 @@ func TestRemoveTag(t *testing.T) {
 
 	require.Len(t, removedTags, 1)
 	require.Contains(t, removedTags, store.UserPickRemoveTagRequest{
-		PickID: "pick-456",
-		TagID:  "tag-123",
+		PickID: 456,
+		TagID:  789,
 	})
 }
 
@@ -240,12 +227,12 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: "user-123",
+		UserID: 123,
 		store:  mockStore,
 	}
 	req := UserPickRemoveTagRequest{
-		PickID: "pick-456",
-		TagID:  "tag-123",
+		PickID: 456,
+		TagID:  789,
 	}
 
 	err := service.RemoveTag(context.Background(), req)
@@ -254,6 +241,6 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
-	require.Equal(t, "pick-456", se.Env["pick_id"])
-	require.Equal(t, "tag-123", se.Env["tag_id"])
+	require.Equal(t, "456", se.Env["pick_id"])
+	require.Equal(t, "789", se.Env["tag_id"])
 }
