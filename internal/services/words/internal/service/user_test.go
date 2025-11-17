@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gamma-omg/lexi-go.git/internal/words/store"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 	"github.com/stretchr/testify/require"
 )
 

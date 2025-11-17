@@ -74,7 +74,7 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	}
 
 	migrator, err := migrate.NewWithDatabaseInstance(
-		"file://../../../db/migrations",
+		"file://../../../../../db/migrations",
 		"test", driver)
 	if err != nil {
 		t.Fatalf("failed to create migrator: %v", err)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gamma-omg/lexi-go.git/internal/words/model"
-	"github.com/gamma-omg/lexi-go.git/internal/words/store"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 )
 
 type wordStore interface {

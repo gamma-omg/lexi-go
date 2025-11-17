@@ -1,6 +1,6 @@
 package store
 
-import "github.com/gamma-omg/lexi-go.git/internal/words/model"
+import "github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 
 type WordInsertRequest struct {
 	Lemma string

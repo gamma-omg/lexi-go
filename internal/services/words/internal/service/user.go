@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gamma-omg/lexi-go.git/internal/words/store"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 )
 
 var (
