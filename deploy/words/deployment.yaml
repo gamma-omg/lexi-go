@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lexigo-words
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      service: lexigo-words
+  template:
+    metadata:
+      labels:
+        service: lexigo-words
+    spec:
+      containers:
+        - name: words
+          image: lexi-go/words:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
