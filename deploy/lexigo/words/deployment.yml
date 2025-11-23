@@ -6,15 +6,15 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      service: lexigo-words
+      app: lexigo-words
   template:
     metadata:
       labels:
-        service: lexigo-words
+        app: lexigo-words
     spec:
       containers:
         - name: words
           image: lexi-go/words:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

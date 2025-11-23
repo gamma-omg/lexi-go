@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: lexigo-words
+  name: lexigo-gateway
   labels:
-    service: lexigo-words
+    app: lexigo-gateway
 spec:
   selector:
-    service: lexigo-words
+    app: lexigo-gateway
   type: ClusterIP
   ports:
     - protocol: TCP

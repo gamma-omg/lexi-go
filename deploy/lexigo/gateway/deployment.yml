@@ -6,15 +6,15 @@ spec:
   replicas: 2
   selector:
     matchLabels:
-      service: lexigo-gateway
+      app: lexigo-gateway
   template:
     metadata:
       labels:
-        service: lexigo-gateway
+        app: lexigo-gateway
     spec:
       containers:
         - name: gateway
           image: lexi-go/gateway:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

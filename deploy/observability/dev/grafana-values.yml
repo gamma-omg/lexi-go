@@ -1,0 +1,20 @@
+adminUser: admin
+adminPassword: admin  
+
+service:
+  type: NodePort  
+
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClassName: standard
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki-gateway.observability.svc.cluster.local
+        isDefault: true

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 set -e
 
 for dir in api/*/; do
