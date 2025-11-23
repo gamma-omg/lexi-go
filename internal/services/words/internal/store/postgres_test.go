@@ -74,7 +74,7 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	}
 
 	migrator, err := migrate.NewWithDatabaseInstance(
-		"file://../../../../../db/migrations",
+		"file://../../db/migrations",
 		"test", driver)
 	if err != nil {
 		t.Fatalf("failed to create migrator: %v", err)
@@ -90,6 +90,8 @@ func runMigrations(t *testing.T, db *sql.DB) {
 }
 
 func insert(t *testing.T, dp *sql.DB, query string, args ...interface{}) int64 {
+	t.Helper()
+
 	res := dp.QueryRow(query, args...)
 
 	var id int64
@@ -199,7 +201,7 @@ func TestCreateUserPick(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickword", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing picks.")
 	)
@@ -222,7 +224,7 @@ func TestCreateUserPick_Exists(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingpickword", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing existing picks.")
 	)
@@ -245,7 +247,7 @@ func TestDeleteUserPick(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickwordtodelete", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing pick deletion.")
 		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
@@ -298,7 +300,7 @@ func TestAddTag(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
 		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
@@ -335,7 +337,7 @@ func TestAddTag_TagNotFound(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
 		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
@@ -353,7 +355,7 @@ func TestRemoveTag(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordtoremove", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tag removal.")
 		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
@@ -388,7 +390,7 @@ func TestRemoveTag_TagNotFound(t *testing.T) {
 	runMigrations(t, pgstore.db)
 
 	var (
-		userID = insert(t, pgstore.db, "INSERT INTO users (email) VALUES ($1) RETURNING id", "test@example.com")
+		userID = "user-123"
 		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
 		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
 		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)

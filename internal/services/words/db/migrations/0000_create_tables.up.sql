@@ -1,10 +1,3 @@
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE words (
     id SERIAL PRIMARY KEY,
     lemma TEXT NOT NULL,
@@ -28,12 +21,11 @@ CREATE INDEX idx_definitions_word_id ON definitions(word_id);
 
 CREATE TABLE user_picks (
     id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id TEXT NOT NULL,
     def_id INT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (def_id) REFERENCES definitions(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE (user_id, def_id)
 );
 CREATE INDEX idx_user_picks_user_id_def_id ON user_picks(user_id, def_id);

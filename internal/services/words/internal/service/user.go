@@ -23,7 +23,7 @@ type userStore interface {
 
 // UserService provides access to user-specific word operations such as picking words and managing tags.
 type UserService struct {
-	UserID int64
+	UserID string
 	store  userStore
 }
 
@@ -51,7 +51,7 @@ func (s *UserService) PickWord(ctx context.Context, r UserPickWordRequest) error
 	}); err != nil {
 		if errors.Is(err, store.ErrExists) {
 			se := NewServiceError(err, http.StatusConflict, "user pick already exists")
-			se.Env["user_id"] = fmt.Sprintf("%d", s.UserID)
+			se.Env["user_id"] = s.UserID
 			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
 			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
 			return se

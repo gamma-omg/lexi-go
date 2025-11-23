@@ -61,15 +61,9 @@ type Image struct {
 	Source DataSource
 }
 
-type User struct {
-	Model
-	ID    int64
-	Email string
-}
-
 type UserPick struct {
 	Model
 	ID     int64
-	UserID int64
+	UserID string
 	DefID  int64
 }

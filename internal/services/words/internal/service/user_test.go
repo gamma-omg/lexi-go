@@ -47,7 +47,7 @@ func TestPickWord(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  userStore,
 	}
 
@@ -59,7 +59,7 @@ func TestPickWord(t *testing.T) {
 
 	require.Len(t, createdPicks, 1)
 	require.Contains(t, createdPicks, store.UserPickCreateRequest{
-		UserID: 123,
+		UserID: "user-123",
 		DefID:  789,
 	})
 }
@@ -72,7 +72,7 @@ func TestPickWord_Exists(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  userStore,
 	}
 
@@ -85,7 +85,7 @@ func TestPickWord_Exists(t *testing.T) {
 	se, ok := err.(*ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusConflict, se.StatusCode)
-	require.Equal(t, "123", se.Env["user_id"])
+	require.Equal(t, "user-123", se.Env["user_id"])
 	require.Equal(t, "456", se.Env["word_id"])
 	require.Equal(t, "789", se.Env["def_id"])
 }
@@ -100,7 +100,7 @@ func TestUnpickWord(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  userStore,
 	}
 
@@ -119,7 +119,7 @@ func TestUnpickWord_NotFound(t *testing.T) {
 	}
 
 	userService := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  userStore,
 	}
 
@@ -145,7 +145,7 @@ func TestAddTag(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  mockStore,
 	}
 	req := UserPickAddTagRequest{
@@ -174,7 +174,7 @@ func TestAddTag_PickNotFound(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  mockStore,
 	}
 	req := UserPickAddTagRequest{
@@ -201,7 +201,7 @@ func TestRemoveTag(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  mockStore,
 	}
 	req := UserPickRemoveTagRequest{
@@ -227,7 +227,7 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 	}
 
 	service := &UserService{
-		UserID: 123,
+		UserID: "user-123",
 		store:  mockStore,
 	}
 	req := UserPickRemoveTagRequest{

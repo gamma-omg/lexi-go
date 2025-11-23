@@ -17,7 +17,7 @@ type WordDeleteRequest struct {
 }
 
 type UserPickCreateRequest struct {
-	UserID int64
+	UserID string
 	DefID  int64
 }
 
