@@ -1,4 +1,4 @@
-package router
+package router_test
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/router"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,7 +31,7 @@ func TestHandle(t *testing.T) {
 
 	for i, c := range tbl {
 		t.Run(fmt.Sprintf("case_%d", i), func(t *testing.T) {
-			r := New()
+			r := router.New()
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.requestBody))
@@ -67,7 +68,7 @@ func TestHandleFunc(t *testing.T) {
 
 	for i, c := range tbl {
 		t.Run(fmt.Sprintf("case_%d", i), func(t *testing.T) {
-			r := New()
+			r := router.New()
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.requestBody))
@@ -101,7 +102,7 @@ func TestSubRouter(t *testing.T) {
 
 	for i, c := range tbl {
 		t.Run(fmt.Sprintf("case_%d", i), func(t *testing.T) {
-			r := New()
+			r := router.New()
 			sub := r.SubRouter(c.mountPoint)
 
 			sub.HandleFunc(c.relativePath, func(w http.ResponseWriter, r *http.Request) {
@@ -121,14 +122,14 @@ func TestSubRouter(t *testing.T) {
 }
 
 func TestSubRoute_PanicsWhenEmpty(t *testing.T) {
-	r := New()
+	r := router.New()
 	assert.Panics(t, func() {
 		r.SubRouter("")
 	})
 }
 
 func TestMiddleware(t *testing.T) {
-	r := New()
+	r := router.New()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Custom-Header", "value-123")
@@ -151,7 +152,7 @@ func TestMiddleware(t *testing.T) {
 }
 
 func TestMiddleware_Order(t *testing.T) {
-	r := New()
+	r := router.New()
 
 	callOrder := make(chan int, 2)
 	r.Use(func(next http.Handler) http.Handler {
