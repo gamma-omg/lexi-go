@@ -1,15 +1,32 @@
-CREATE TABLE words (
+DO $$
+BEGIN
+    CREATE TYPE lemma_class AS ENUM (
+        'noun',
+        'pronoun',
+        'verb',
+        'adjective',
+        'adverb',
+        'preposition',
+        'conjunction',
+        'interjection'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN 
+        NULL;
+END$$;
+
+CREATE TABLE IF NOT EXISTS words (
     id SERIAL PRIMARY KEY,
     lemma TEXT NOT NULL,
     lang VARCHAR(10) NOT NULL,
-    class VARCHAR(50),
+    class lemma_class,
     rarity INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (lemma, lang, class)
 );
 
-CREATE TABLE definitions (
+CREATE TABLE IF NOT EXISTS definitions (
     id SERIAL PRIMARY KEY,
     word_id INT NOT NULL,
     def TEXT NOT NULL,
@@ -19,7 +36,7 @@ CREATE TABLE definitions (
 );
 CREATE INDEX idx_definitions_word_id ON definitions(word_id);
 
-CREATE TABLE user_picks (
+CREATE TABLE IF NOT EXISTS user_picks (
     id SERIAL PRIMARY KEY,
     user_id TEXT NOT NULL,
     def_id INT NOT NULL,
@@ -30,7 +47,7 @@ CREATE TABLE user_picks (
 );
 CREATE INDEX idx_user_picks_user_id_def_id ON user_picks(user_id, def_id);
 
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
     id SERIAL PRIMARY KEY,
     tag TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -38,7 +55,7 @@ CREATE TABLE tags (
 );
 CREATE INDEX idx_tags_tag ON tags(tag);
 
-CREATE TABLE tags_map (
+CREATE TABLE IF NOT EXISTS tags_map (
     id SERIAL PRIMARY KEY,
     pick_id INT NOT NULL,
     tag_id INT NOT NULL,
