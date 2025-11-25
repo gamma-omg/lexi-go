@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+type Middleware func(next http.Handler) http.Handler
+
 type Router struct {
 	prefix     string
 	mux        *http.ServeMux
