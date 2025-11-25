@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: lexi-go/gateway:latest
+          image: lexi-go/gateway:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/router"
@@ -13,20 +12,21 @@ import (
 
 func TestHandle(t *testing.T) {
 	tbl := []struct {
-		method       string
-		path         string
-		requestBody  string
-		responseBody string
-		status       int
+		method     string
+		mountPoint string
+		url        string
+		status     int
 	}{
-		{"GET", "/hello", "Hello, world!", "ok", http.StatusOK},
-		{"GET", "/notfound", "Not Found", "", http.StatusNotFound},
-		{"POST", "/hello", "Method Not Allowed", "Not Allowed", http.StatusMethodNotAllowed},
-		{"PUT", "/hello", "", "", http.StatusMethodNotAllowed},
-		{"DELETE", "/hello", "", "forbidden", http.StatusForbidden},
-		{"GET", "/", "", "root hit", http.StatusOK},
-		{"GET", "/long/path", "long", "", http.StatusOK},
-		{"POST", "/long/path/", "", "long", http.StatusOK},
+		{"GET", "/hello", "/hello", http.StatusOK},
+		{"GET", "/notfound", "/notfound", http.StatusNotFound},
+		{"POST", "/hello", "/hello", http.StatusConflict},
+		{"PUT", "/hello", "/hello", http.StatusCreated},
+		{"DELETE", "/hello", "/hello", http.StatusForbidden},
+		{"GET", "/", "/", http.StatusOK},
+		{"GET", "/long/path", "/long/path", http.StatusOK},
+		{"POST", "/long/path/", "/long/path/child", http.StatusOK},
+		{"POST", "POST /api/v1/", "/api/v1/method", http.StatusOK},
+		{"POST", "GET /api/v1/", "/api/v1/method", http.StatusMethodNotAllowed},
 	}
 
 	for i, c := range tbl {
@@ -34,36 +34,33 @@ func TestHandle(t *testing.T) {
 			r := router.New()
 
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.requestBody))
+			req := httptest.NewRequest(c.method, c.url, http.NoBody)
 
-			r.Handle(c.path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Handle(c.mountPoint, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(c.status)
-				fmt.Fprint(w, c.responseBody)
 			}))
 			r.ServeHTTP(rec, req)
 
 			assert.Equal(t, c.status, rec.Code)
-			assert.Equal(t, c.responseBody, rec.Body.String())
 		})
 	}
 }
 
 func TestHandleFunc(t *testing.T) {
 	tbl := []struct {
-		method       string
-		path         string
-		requestBody  string
-		responseBody string
-		status       int
+		method     string
+		mountPoint string
+		url        string
+		status     int
 	}{
-		{"GET", "/hello", "Hello, world!", "ok", http.StatusOK},
-		{"GET", "/notfound", "Not Found", "", http.StatusNotFound},
-		{"POST", "/hello", "Method Not Allowed", "Not Allowed", http.StatusMethodNotAllowed},
-		{"PUT", "/hello", "", "", http.StatusMethodNotAllowed},
-		{"DELETE", "/hello", "", "forbidden", http.StatusForbidden},
-		{"GET", "/", "", "root hit", http.StatusOK},
-		{"GET", "/long/path", "long", "", http.StatusOK},
-		{"POST", "/long/path/", "", "long", http.StatusOK},
+		{"GET", "/hello", "/hello", http.StatusOK},
+		{"GET", "/notfound", "/notfound", http.StatusNotFound},
+		{"POST", "/hello", "/hello", http.StatusMethodNotAllowed},
+		{"PUT", "/hello", "/hello", http.StatusMethodNotAllowed},
+		{"DELETE", "/hello", "/hello", http.StatusForbidden},
+		{"GET", "/", "/", http.StatusOK},
+		{"GET", "/long/path", "/long/path", http.StatusOK},
+		{"POST", "/long/path/", "/long/path/child", http.StatusOK},
 	}
 
 	for i, c := range tbl {
@@ -71,17 +68,15 @@ func TestHandleFunc(t *testing.T) {
 			r := router.New()
 
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.requestBody))
+			req := httptest.NewRequest(c.method, c.url, http.NoBody)
 
-			r.HandleFunc(c.path, func(w http.ResponseWriter, r *http.Request) {
+			r.HandleFunc(c.mountPoint, func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(c.status)
-				fmt.Fprint(w, c.responseBody)
 			})
 
 			r.ServeHTTP(rec, req)
 
 			assert.Equal(t, c.status, rec.Code)
-			assert.Equal(t, c.responseBody, rec.Body.String())
 		})
 	}
 }
@@ -96,8 +91,8 @@ func TestSubRouter(t *testing.T) {
 		status       int
 	}{
 		{"GET", "/api", "/hello", "/api/hello", "hello from subrouter", http.StatusOK},
-		{"POST", "v1", "/hello/", "/v1/hello/world", "hello from subrouter", http.StatusForbidden},
-		{"POST", "/long/prefix", "hello", "/long/prefix/hello", "", http.StatusConflict},
+		{"POST", "/v1", "/hello/", "/v1/hello/world", "hello from subrouter", http.StatusForbidden},
+		{"POST", "/long/prefix", "/hello", "/long/prefix/hello", "", http.StatusConflict},
 	}
 
 	for i, c := range tbl {

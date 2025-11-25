@@ -1,9 +1,10 @@
 .PHONY: image
 image:
-	docker build -t lexi-go/gateway:latest .
-	minikube image load lexi-go/gateway:latest
+	@eval "$$(minikube docker-env)" && \
+	docker build -f Dockerfile -t lexi-go/gateway:${TAG} ../.. && \
+	eval "$$(minikube docker-env -u)"
 
 .PHONY: deploy
 deploy: image
-	kubectl apply -f ../../../deploy/lexigo/gateway/ -n lexigo
-	kubectl rollout restart deployment/lexigo-gateway -n lexigo
+	@kubectl apply -f ../../../deploy/lexigo/gateway/ -n lexigo
+	@kubectl rollout restart deployment/lexigo-gateway -n lexigo

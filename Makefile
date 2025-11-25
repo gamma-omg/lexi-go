@@ -1,5 +1,7 @@
+TAG ?= dev
+
 .PHONY: up
-up: install-tools init-k8s init-observability proto image deploy
+up: install-tools init-k8s init-observability proto deploy
 	@echo "Initialization complete."
 
 .PHONY: init-k8s
@@ -20,10 +22,11 @@ proto:
 
 .PHONY: image
 image: proto
-	make -C internal/services/gateway image
-	make -C internal/services/words image
+	make -C internal/services/gateway image TAG=${TAG}
+	make -C internal/services/words image TAG=${TAG}
 
 .PHONY: deploy
-deploy: image
-	make -C internal/services/gateway deploy
-	make -C internal/services/words deploy
+deploy:
+	kubectl apply -f deploy/lexigo/common -n lexigo
+	make -C internal/services/gateway deploy TAG=${TAG}
+	make -C internal/services/words deploy TAG=${TAG}

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lexigo-words-config
+  namespace: lexigo
+data:
+  LISTEN_ADDR: ":8080"
+  DB_HOST: "lexigo-db"
+  DB_PORT: "5432"
+  DB_USER: "pg-user"
+  DB_PASSWORD: "pg-pass"
+  DB_NAME: "words_db"

@@ -14,7 +14,16 @@ spec:
     spec:
       containers:
         - name: words
-          image: lexi-go/words:latest
+          image: lexi-go/words:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: lexigo-words-config
+          env:
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-secret
+                  key: AUTH_SECRET
