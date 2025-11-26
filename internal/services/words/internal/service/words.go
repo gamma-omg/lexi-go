@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gamma-omg/lexi-go/internal/services/words/fn"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/fn"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 )
