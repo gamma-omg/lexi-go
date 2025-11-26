@@ -24,6 +24,8 @@ const (
 	SrcAI      DataSource = "ai"
 )
 
+type TagIDMap map[string]int64
+
 type Model struct {
 	CreateAt  time.Time
 	UpdatedAt time.Time

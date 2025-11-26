@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/lib/pq"
 )
 
@@ -16,7 +16,7 @@ const (
 
 // PostgresStore implements the *store interfaces using PostgreSQL as the backend.
 type PostresStore struct {
-	db *sql.DB
+	db dbx
 }
 
 type PostgresConfig struct {
@@ -27,7 +27,13 @@ type PostgresConfig struct {
 	DB       string
 }
 
-func NewPostgresStore(cfg PostgresConfig) (*PostresStore, error) {
+type dbx interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func NewPostgresDB(cfg PostgresConfig) (*sql.DB, error) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Host,
 		cfg.Port,
@@ -42,7 +48,11 @@ func NewPostgresStore(cfg PostgresConfig) (*PostresStore, error) {
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
 
-	return &PostresStore{db: db}, nil
+	return db, nil
+}
+
+func NewPostgresStore(db *sql.DB) *PostresStore {
+	return &PostresStore{db: db}
 }
 
 func (s *PostresStore) InsertWord(ctx context.Context, r WordInsertRequest) (int64, error) {
@@ -70,17 +80,20 @@ func (s *PostresStore) DeleteWord(ctx context.Context, r WordDeleteRequest) erro
 	return nil
 }
 
-func (s *PostresStore) CreateUserPick(ctx context.Context, r UserPickCreateRequest) error {
-	_, err := s.db.ExecContext(ctx, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2)", r.UserID, r.DefID)
+func (s *PostresStore) CreateUserPick(ctx context.Context, r UserPickCreateRequest) (int64, error) {
+	res := s.db.QueryRowContext(ctx, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", r.UserID, r.DefID)
+
+	var id int64
+	err := res.Scan(&id)
 	if err != nil {
 		if isPqErr(err, errUniqueViolation) {
-			return ErrExists
+			return 0, ErrExists
 		}
 
-		return fmt.Errorf("create user pick: %w", err)
+		return 0, fmt.Errorf("create user pick: %w", err)
 	}
 
-	return nil
+	return id, nil
 }
 
 func (s *PostresStore) DeleteUserPick(ctx context.Context, r UserPickDeleteRequest) error {
@@ -92,32 +105,63 @@ func (s *PostresStore) DeleteUserPick(ctx context.Context, r UserPickDeleteReque
 	return nil
 }
 
-func (s *PostresStore) GetOrCreateTag(ctx context.Context, tag string) (int64, error) {
-	row := s.db.QueryRowContext(ctx, "SELECT id FROM tags WHERE tag = $1", tag)
-
-	var tagID int64
-	err := row.Scan(&tagID)
-	if err == nil {
-		return tagID, nil
+func (s *PostresStore) CreateTags(ctx context.Context, r TagsCreateRequest) (model.TagIDMap, error) {
+	if len(r.Tags) == 0 {
+		return model.TagIDMap{}, nil
 	}
 
-	if errors.Is(err, sql.ErrNoRows) {
-		res := s.db.QueryRowContext(ctx, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", tag)
+	_, err := s.db.ExecContext(ctx, "INSERT INTO tags (tag) SELECT UNNEST($1::text[]) ON CONFLICT (tag) DO NOTHING", pq.Array(r.Tags))
+	if err != nil {
+		return nil, fmt.Errorf("insert tags: %w", err)
+	}
 
+	rows, err := s.db.QueryContext(ctx, "SELECT id, tag FROM tags WHERE tag = ANY($1::text[])", pq.Array(r.Tags))
+	if err != nil {
+		return nil, fmt.Errorf("query tag ids: %w", err)
+	}
+	defer rows.Close()
+
+	tagIDMap := make(model.TagIDMap)
+	for rows.Next() {
 		var id int64
-		err := res.Scan(&id)
-		if err != nil {
-			return 0, fmt.Errorf("create tag: %w", err)
+		var tag string
+		if err := rows.Scan(&id, &tag); err != nil {
+			return nil, fmt.Errorf("scan tag: %w", err)
 		}
 
-		return id, nil
+		tagIDMap[tag] = id
 	}
 
-	return 0, fmt.Errorf("query tag id: %w", err)
+	return tagIDMap, nil
 }
 
-func (s *PostresStore) AddTag(ctx context.Context, r UserPickAddTagRequest) error {
-	_, err := s.db.ExecContext(ctx, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2)", r.PickID, r.TagID)
+func (s *PostresStore) GetTags(ctx context.Context, r TagsGetRequest) (model.TagIDMap, error) {
+	if len(r.Tags) == 0 {
+		return model.TagIDMap{}, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, "SELECT id, tag FROM tags WHERE tag = ANY($1::text[])", pq.Array(r.Tags))
+	if err != nil {
+		return nil, fmt.Errorf("query tag ids: %w", err)
+	}
+	defer rows.Close()
+
+	tagIDMap := make(model.TagIDMap)
+	for rows.Next() {
+		var id int64
+		var tag string
+		if err := rows.Scan(&id, &tag); err != nil {
+			return nil, fmt.Errorf("scan tag: %w", err)
+		}
+
+		tagIDMap[tag] = id
+	}
+
+	return tagIDMap, nil
+}
+
+func (s *PostresStore) AddTags(ctx context.Context, r TagsAddRequest) error {
+	_, err := s.db.ExecContext(ctx, "INSERT INTO tags_map (pick_id, tag_id) SELECT $1, UNNEST($2::int[])", r.PickID, pq.Array(r.TagIDs))
 	if err != nil {
 		if isPqErr(err, errUniqueViolation) {
 			return ErrExists
@@ -132,8 +176,8 @@ func (s *PostresStore) AddTag(ctx context.Context, r UserPickAddTagRequest) erro
 	return nil
 }
 
-func (s *PostresStore) RemoveTag(ctx context.Context, r UserPickRemoveTagRequest) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM tags_map WHERE pick_id = $1 AND tag_id = $2", r.PickID, r.TagID)
+func (s *PostresStore) RemoveTags(ctx context.Context, r TagsRemoveRequest) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM tags_map WHERE pick_id = $1 AND tag_id = ANY($2::int[])", r.PickID, pq.Array(r.TagIDs))
 	if err != nil {
 		return fmt.Errorf("delete tag: %w", err)
 	}
@@ -141,8 +185,30 @@ func (s *PostresStore) RemoveTag(ctx context.Context, r UserPickRemoveTagRequest
 	return nil
 }
 
-func (s *PostresStore) Close() error {
-	return s.db.Close()
+func (s *PostresStore) WithinTx(ctx context.Context, fn func(tx DataStore) error) error {
+	db, ok := s.db.(*sql.DB)
+	if !ok {
+		return fmt.Errorf("begin tx: already in tx")
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("tx begin: %w", err)
+	}
+
+	txStore := &PostresStore{db: tx}
+	if err := fn(txStore); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("tx rollback: %v after: %w", rbErr, err)
+		}
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("tx commit: %w", err)
+	}
+
+	return nil
 }
 
 func isPqErr(err error, code pq.ErrorCode) bool {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -13,11 +14,12 @@ import (
 type mockStore struct {
 	insertWord         func(ctx context.Context, r store.WordInsertRequest) (int64, error)
 	deleteWord         func(ctx context.Context, r store.WordDeleteRequest) error
-	CreateUserPickFunc func(ctx context.Context, r store.UserPickCreateRequest) error
+	CreateUserPickFunc func(ctx context.Context, r store.UserPickCreateRequest) (int64, error)
 	DeleteUserPickFunc func(ctx context.Context, r store.UserPickDeleteRequest) error
-	AddTagFunc         func(ctx context.Context, r store.UserPickAddTagRequest) error
-	RemoveTagFunc      func(ctx context.Context, r store.UserPickRemoveTagRequest) error
-	GetOrCreateTagFunc func(ctx context.Context, tag string) (int64, error)
+	CreateTagsFunc     func(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error)
+	GetTagsFunc        func(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error)
+	AddTagsFunc        func(ctx context.Context, r store.TagsAddRequest) error
+	RemoveTagsFunc     func(ctx context.Context, r store.TagsRemoveRequest) error
 }
 
 func (m *mockStore) InsertWord(ctx context.Context, r store.WordInsertRequest) (int64, error) {
@@ -28,7 +30,7 @@ func (m *mockStore) DeleteWord(ctx context.Context, r store.WordDeleteRequest) e
 	return m.deleteWord(ctx, r)
 }
 
-func (m *mockStore) CreateUserPick(ctx context.Context, r store.UserPickCreateRequest) error {
+func (m *mockStore) CreateUserPick(ctx context.Context, r store.UserPickCreateRequest) (int64, error) {
 	return m.CreateUserPickFunc(ctx, r)
 }
 
@@ -36,16 +38,24 @@ func (m *mockStore) DeleteUserPick(ctx context.Context, r store.UserPickDeleteRe
 	return m.DeleteUserPickFunc(ctx, r)
 }
 
-func (m *mockStore) AddTag(ctx context.Context, r store.UserPickAddTagRequest) error {
-	return m.AddTagFunc(ctx, r)
+func (m *mockStore) CreateTags(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error) {
+	return m.CreateTagsFunc(ctx, r)
 }
 
-func (m *mockStore) RemoveTag(ctx context.Context, r store.UserPickRemoveTagRequest) error {
-	return m.RemoveTagFunc(ctx, r)
+func (m *mockStore) GetTags(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error) {
+	return m.GetTagsFunc(ctx, r)
 }
 
-func (m *mockStore) GetOrCreateTag(ctx context.Context, tag string) (int64, error) {
-	return m.GetOrCreateTagFunc(ctx, tag)
+func (m *mockStore) AddTags(ctx context.Context, r store.TagsAddRequest) error {
+	return m.AddTagsFunc(ctx, r)
+}
+
+func (m *mockStore) RemoveTags(ctx context.Context, r store.TagsRemoveRequest) error {
+	return m.RemoveTagsFunc(ctx, r)
+}
+
+func (m *mockStore) WithinTx(ctx context.Context, fn func(tx store.DataStore) error) error {
+	return fn(m)
 }
 
 func TestAddWord(t *testing.T) {
@@ -57,7 +67,10 @@ func TestAddWord(t *testing.T) {
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := WordAddRequest{
 		Lemma: "example",
 		Lang:  "en",
@@ -82,7 +95,10 @@ func TestAddWord_Exists(t *testing.T) {
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := WordAddRequest{
 		Lemma: "example",
 		Lang:  "en",
@@ -109,7 +125,10 @@ func TestDeleteWord(t *testing.T) {
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	wordID := int64(12345)
 
 	err := service.DeleteWord(context.Background(), wordID)
@@ -128,7 +147,10 @@ func TestDeleteWord_NotFound(t *testing.T) {
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	wordID := int64(12345)
 
 	err := service.DeleteWord(context.Background(), wordID)
@@ -142,19 +164,37 @@ func TestDeleteWord_NotFound(t *testing.T) {
 
 func TestPickWord(t *testing.T) {
 	var createdPicks []store.UserPickCreateRequest
+	var addedTags []store.TagsAddRequest
 	userStore := &mockStore{
-		CreateUserPickFunc: func(ctx context.Context, r store.UserPickCreateRequest) error {
-			createdPicks = append(createdPicks, r)
+		CreateTagsFunc: func(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{
+				"important": 100,
+				"review":    200,
+			}, nil
+		},
+		GetTagsFunc: func(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{}, nil
+		},
+		AddTagsFunc: func(ctx context.Context, r store.TagsAddRequest) error {
+			addedTags = append(addedTags, r)
 			return nil
+		},
+		CreateUserPickFunc: func(ctx context.Context, r store.UserPickCreateRequest) (int64, error) {
+			createdPicks = append(createdPicks, r)
+			return int64(len(createdPicks)), nil
 		},
 	}
 
-	srv := &WordsService{store: userStore}
+	srv := NewWordsService(userStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 
 	err := srv.PickWord(context.Background(), UserPickWordRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
+		Tags:   []string{"important", "review"},
 	})
 	require.NoError(t, err)
 
@@ -163,26 +203,35 @@ func TestPickWord(t *testing.T) {
 		UserID: "user-123",
 		DefID:  789,
 	})
+
+	require.Len(t, addedTags, 1)
+	require.Contains(t, addedTags, store.TagsAddRequest{
+		PickID: 1,
+		TagIDs: []int64{100, 200},
+	})
 }
 
 func TestPickWord_Exists(t *testing.T) {
 	userStore := &mockStore{
-		CreateUserPickFunc: func(ctx context.Context, r store.UserPickCreateRequest) error {
-			return store.ErrExists
+		CreateUserPickFunc: func(ctx context.Context, r store.UserPickCreateRequest) (int64, error) {
+			return 0, store.ErrExists
 		},
 	}
 
-	userService := &WordsService{store: userStore}
+	srv := NewWordsService(userStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 
-	err := userService.PickWord(context.Background(), UserPickWordRequest{
+	err := srv.PickWord(context.Background(), UserPickWordRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
 	})
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
-	require.True(t, ok)
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
 	require.Equal(t, http.StatusConflict, se.StatusCode)
 	require.Equal(t, "user-123", se.Env["user_id"])
 	require.Equal(t, "456", se.Env["word_id"])
@@ -198,9 +247,12 @@ func TestUnpickWord(t *testing.T) {
 		},
 	}
 
-	userService := &WordsService{store: userStore}
+	srv := NewWordsService(userStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 
-	err := userService.UnpickWord(context.Background(), 456)
+	err := srv.UnpickWord(context.Background(), 456)
 	require.NoError(t, err)
 
 	require.Len(t, deletedPicks, 1)
@@ -214,113 +266,137 @@ func TestUnpickWord_NotFound(t *testing.T) {
 		},
 	}
 
-	userService := &WordsService{store: userStore}
+	srv := NewWordsService(userStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 
-	err := userService.UnpickWord(context.Background(), 456)
+	err := srv.UnpickWord(context.Background(), 456)
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
-	require.True(t, ok)
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 }
 
 func TestAddTag(t *testing.T) {
-	var addedTags []store.UserPickAddTagRequest
+	var addedTags []store.TagsAddRequest
 	mockStore := &mockStore{
-		GetOrCreateTagFunc: func(ctx context.Context, tag string) (int64, error) {
-			return 789, nil
+		CreateTagsFunc: func(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{
+				"important": 789,
+				"review":    790,
+			}, nil
 		},
-		AddTagFunc: func(ctx context.Context, r store.UserPickAddTagRequest) error {
+		GetTagsFunc: func(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{}, nil
+		},
+		AddTagsFunc: func(ctx context.Context, r store.TagsAddRequest) error {
 			addedTags = append(addedTags, r)
 			return nil
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := UserPickAddTagRequest{
 		PickID: 456,
-		Tag:    "important",
+		Tags:   []string{"important", "review"},
 	}
 
-	err := service.AddTag(context.Background(), req)
+	err := srv.AddTags(context.Background(), req)
 	require.NoError(t, err)
 
 	require.Len(t, addedTags, 1)
-	require.Contains(t, addedTags, store.UserPickAddTagRequest{
+	require.Contains(t, addedTags, store.TagsAddRequest{
 		PickID: 456,
-		TagID:  789,
+		TagIDs: []int64{789, 790},
 	})
 }
 
 func TestAddTag_PickNotFound(t *testing.T) {
 	mockStore := &mockStore{
-		GetOrCreateTagFunc: func(ctx context.Context, tag string) (int64, error) {
-			return 789, nil
+		CreateTagsFunc: func(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{}, nil
 		},
-		AddTagFunc: func(ctx context.Context, r store.UserPickAddTagRequest) error {
+		GetTagsFunc: func(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{}, nil
+		},
+		AddTagsFunc: func(ctx context.Context, r store.TagsAddRequest) error {
 			return store.ErrNotFound
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := UserPickAddTagRequest{
 		PickID: 456,
-		Tag:    "important",
+		Tags:   []string{"important"},
 	}
 
-	err := service.AddTag(context.Background(), req)
+	err := srv.AddTags(context.Background(), req)
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
-	require.True(t, ok)
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 }
 
 func TestRemoveTag(t *testing.T) {
-	var removedTags []store.UserPickRemoveTagRequest
+	var removedTags []store.TagsRemoveRequest
 	mockStore := &mockStore{
-		RemoveTagFunc: func(ctx context.Context, r store.UserPickRemoveTagRequest) error {
+		RemoveTagsFunc: func(ctx context.Context, r store.TagsRemoveRequest) error {
 			removedTags = append(removedTags, r)
 			return nil
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := UserPickRemoveTagRequest{
 		PickID: 456,
 		TagID:  789,
 	}
 
-	err := service.RemoveTag(context.Background(), req)
+	err := srv.RemoveTag(context.Background(), req)
 	require.NoError(t, err)
 
 	require.Len(t, removedTags, 1)
-	require.Contains(t, removedTags, store.UserPickRemoveTagRequest{
+	require.Contains(t, removedTags, store.TagsRemoveRequest{
 		PickID: 456,
-		TagID:  789,
+		TagIDs: []int64{789},
 	})
 }
 
 func TestRemoveTag_PickNotFound(t *testing.T) {
 	mockStore := &mockStore{
-		RemoveTagFunc: func(ctx context.Context, r store.UserPickRemoveTagRequest) error {
+		RemoveTagsFunc: func(ctx context.Context, r store.TagsRemoveRequest) error {
 			return store.ErrNotFound
 		},
 	}
 
-	service := &WordsService{store: mockStore}
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
 	req := UserPickRemoveTagRequest{
 		PickID: 456,
 		TagID:  789,
 	}
 
-	err := service.RemoveTag(context.Background(), req)
+	err := srv.RemoveTag(context.Background(), req)
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
-	require.True(t, ok)
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 	require.Equal(t, "789", se.Env["tag_id"])

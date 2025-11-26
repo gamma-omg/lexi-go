@@ -25,12 +25,27 @@ type UserPickDeleteRequest struct {
 	PickID int64
 }
 
-type UserPickAddTagRequest struct {
-	PickID int64
-	TagID  int64
+type UserPicksGetRequest struct {
+	UserID      string
+	WithTags    []int64
+	WithoutTags []int64
+	NextPage    string
 }
 
-type UserPickRemoveTagRequest struct {
+type TagsCreateRequest struct {
+	Tags []string
+}
+
+type TagsGetRequest struct {
+	Tags []string
+}
+
+type TagsAddRequest struct {
 	PickID int64
-	TagID  int64
+	TagIDs []int64
+}
+
+type TagsRemoveRequest struct {
+	PickID int64
+	TagIDs []int64
 }

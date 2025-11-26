@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,7 +19,7 @@ func run(ctx context.Context) error {
 	slog.Info("starting words service")
 
 	cfg := config.FromEnv()
-	store, err := store.NewPostgresStore(store.PostgresConfig{
+	db, err := store.NewPostgresDB(store.PostgresConfig{
 		Host:     cfg.DB.Host,
 		Port:     cfg.DB.Port,
 		User:     cfg.DB.User,
@@ -26,8 +27,10 @@ func run(ctx context.Context) error {
 		DB:       cfg.DB.Name,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
+
+	store := store.NewPostgresStore(db)
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -40,7 +43,10 @@ func run(ctx context.Context) error {
 	r := router.New()
 	r.Use(middleware.Auth(cfg.AuthSecret))
 
-	srv := service.NewWordsService(store)
+	srv := service.NewWordsService(store, service.WordsServiceConfig{
+		TagsCacheSize: cfg.TagsCacheSize,
+		TagsMaxCost:   cfg.TagsMaxCost,
+	})
 	api := rest.NewAPI(srv)
 	api.Register(r)
 

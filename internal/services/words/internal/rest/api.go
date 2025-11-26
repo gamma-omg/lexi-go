@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -27,7 +28,6 @@ func (api *API) Register(m mux) {
 	m.HandleFunc("DELETE /words/{word_id}", api.handleDeleteWord)
 	m.HandleFunc("PUT /picks/{word_id}/{def_id}", api.handlePickWord)
 	m.HandleFunc("DELETE /picks/{pick_id}", api.handleDeletePick)
-	m.HandleFunc("PUT /tags/{pick_id}/{tag}", api.handleAddTag)
 	m.HandleFunc("DELETE /tags/{pick_id}/{tag_id}", api.handleDeleteTag)
 }
 
@@ -99,24 +99,6 @@ func (api *API) handleDeletePick(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (api *API) handleAddTag(w http.ResponseWriter, r *http.Request) {
-	pickID, err := idFromRequest(r, "pick_id")
-	if err != nil {
-		handleErr(w, r, err)
-		return
-	}
-
-	tag := r.PathValue("tag")
-	err = api.svc.AddTag(r.Context(), service.UserPickAddTagRequest{
-		PickID: pickID,
-		Tag:    tag,
-	})
-	if err != nil {
-		handleErr(w, r, err)
-		return
-	}
-}
-
 func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	pickID, err := idFromRequest(r, "pick_id")
 	if err != nil {
@@ -158,11 +140,11 @@ func handleErr(w http.ResponseWriter, r *http.Request, err error) {
 		"remote_addr", r.RemoteAddr,
 	)
 
-	se, ok := err.(*service.ServiceError)
-	if !ok {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	var se *service.ServiceError
+	if errors.As(err, &se) {
+		http.Error(w, se.Msg, se.StatusCode)
 		return
 	}
 
-	http.Error(w, se.Msg, se.StatusCode)
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }

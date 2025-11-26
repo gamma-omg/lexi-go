@@ -100,6 +100,7 @@ func insert(t *testing.T, dp *sql.DB, query string, args ...interface{}) int64 {
 	return id
 }
 
+var db *sql.DB
 var pgstore *PostresStore
 
 func TestMain(m *testing.M) {
@@ -111,7 +112,7 @@ func TestMain(m *testing.M) {
 	defer closer()
 
 	var err error
-	pgstore, err = NewPostgresStore(PostgresConfig{
+	db, err = NewPostgresDB(PostgresConfig{
 		Host:     res.host,
 		Port:     res.port,
 		User:     "test",
@@ -119,15 +120,16 @@ func TestMain(m *testing.M) {
 		DB:       "test",
 	})
 	if err != nil {
-		log.Fatalf("failed to create postgres store: %v", err)
+		log.Fatalf("failed to connect to postgres: %v", err)
 	}
-	defer pgstore.Close()
+	defer db.Close()
 
+	pgstore = NewPostgresStore(db)
 	os.Exit(m.Run())
 }
 
 func TestInsertWord(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	id, err := pgstore.InsertWord(context.Background(), WordInsertRequest{
 		Lemma: "testword",
@@ -136,7 +138,7 @@ func TestInsertWord(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	row := pgstore.db.QueryRow("SELECT lemma, lang, class FROM words WHERE id = $1", id)
+	row := db.QueryRow("SELECT lemma, lang, class FROM words WHERE id = $1", id)
 
 	var lemma, lang, class string
 	err = row.Scan(&lemma, &lang, &class)
@@ -147,7 +149,7 @@ func TestInsertWord(t *testing.T) {
 }
 
 func TestInsertWord_Exists(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	_, err := pgstore.InsertWord(t.Context(), WordInsertRequest{
 		Lemma: "existingword",
@@ -166,7 +168,7 @@ func TestInsertWord_Exists(t *testing.T) {
 }
 
 func TestDeleteWord(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	id, err := pgstore.InsertWord(t.Context(), WordInsertRequest{
 		Lemma: "wordtodelete",
@@ -180,7 +182,7 @@ func TestDeleteWord(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM words WHERE id = $1", id)
+	row := db.QueryRow("SELECT COUNT(1) FROM words WHERE id = $1", id)
 
 	var count int
 	err = row.Scan(&count)
@@ -189,7 +191,7 @@ func TestDeleteWord(t *testing.T) {
 }
 
 func TestDeleteWord_NotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	err := pgstore.DeleteWord(t.Context(), WordDeleteRequest{
 		ID: 999999,
@@ -198,21 +200,21 @@ func TestDeleteWord_NotFound(t *testing.T) {
 }
 
 func TestCreateUserPick(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickword", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing picks.")
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickword", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing picks.")
 	)
 
-	err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
 	require.NoError(t, err)
 
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM user_picks WHERE user_id = $1 AND def_id = $2", userID, defID)
+	row := db.QueryRow("SELECT COUNT(1) FROM user_picks WHERE user_id = $1 AND def_id = $2", userID, defID)
 
 	var count int
 	err = row.Scan(&count)
@@ -221,21 +223,21 @@ func TestCreateUserPick(t *testing.T) {
 }
 
 func TestCreateUserPick_Exists(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingpickword", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing existing picks.")
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingpickword", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing existing picks.")
 	)
 
-	err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
 	require.NoError(t, err)
 
-	err = pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err = pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
@@ -244,13 +246,13 @@ func TestCreateUserPick_Exists(t *testing.T) {
 }
 
 func TestDeleteUserPick(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickwordtodelete", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing pick deletion.")
-		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "pickwordtodelete", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing pick deletion.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
 	err := pgstore.DeleteUserPick(t.Context(), UserPickDeleteRequest{
@@ -258,7 +260,7 @@ func TestDeleteUserPick(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM user_picks WHERE id = $1", pickID)
+	row := db.QueryRow("SELECT COUNT(1) FROM user_picks WHERE id = $1", pickID)
 
 	var count int
 	err = row.Scan(&count)
@@ -267,7 +269,7 @@ func TestDeleteUserPick(t *testing.T) {
 }
 
 func TestDeleteUserPick_NotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
 	err := pgstore.DeleteUserPick(t.Context(), UserPickDeleteRequest{
 		PickID: 999999,
@@ -275,100 +277,272 @@ func TestDeleteUserPick_NotFound(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetOrCreateTag(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestCreateTags(t *testing.T) {
+	runMigrations(t, db)
 
-	tagName := "testtag"
-
-	tagID1, err := pgstore.GetOrCreateTag(t.Context(), tagName)
+	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+		Tags: []string{"tag1", "tag2", "tag3"},
+	})
 	require.NoError(t, err)
-	require.NotZero(t, tagID1)
+	require.Len(t, tags, 3)
 
-	tagID2, err := pgstore.GetOrCreateTag(t.Context(), tagName)
-	require.NoError(t, err)
-	require.Equal(t, tagID1, tagID2)
+	for _, tag := range []string{"tag1", "tag2", "tag3"} {
+		tagID, ok := tags[tag]
+		require.True(t, ok)
 
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM tags WHERE id = $1 AND tag = $2", tagID1, tagName)
+		row := db.QueryRow("SELECT id FROM tags WHERE tag = $1", tag)
 
-	var count int
-	err = row.Scan(&count)
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
+		var id int
+		err := row.Scan(&id)
+		require.NoError(t, err)
+		require.Equal(t, int(tagID), id)
+	}
 }
 
-func TestAddTag(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestCreateTags_ExistingTags(t *testing.T) {
+	runMigrations(t, db)
+
+	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+		Tags: []string{"tag1", "tag2"},
+	})
+	require.NoError(t, err)
+
+	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+		Tags: []string{"tag2", "tag3", "tag4"},
+	})
+	require.NoError(t, err)
+	require.Len(t, tags, 3)
+
+	for _, tag := range []string{"tag2", "tag3", "tag4"} {
+		tagID, ok := tags[tag]
+		require.True(t, ok)
+		row := db.QueryRow("SELECT id FROM tags WHERE tag = $1", tag)
+
+		var id int
+		err := row.Scan(&id)
+		require.NoError(t, err)
+		require.Equal(t, int(tagID), id)
+	}
+}
+
+func TestCreateTags_EmptyInput(t *testing.T) {
+	runMigrations(t, db)
+
+	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{Tags: []string{}})
+	require.NoError(t, err)
+	require.Len(t, tags, 0)
+}
+
+func TestGetTags(t *testing.T) {
+	runMigrations(t, db)
+
+	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+		Tags: []string{"tagA", "tagB", "tagC"},
+	})
+	require.NoError(t, err)
+
+	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+		Tags: []string{"tagA", "tagC"},
+	})
+	require.NoError(t, err)
+	require.Len(t, tags, 2)
+
+	for _, tag := range []string{"tagA", "tagC"} {
+		tagID, ok := tags[tag]
+		require.True(t, ok)
+
+		row := db.QueryRow("SELECT id FROM tags WHERE tag = $1", tag)
+
+		var id int
+		err := row.Scan(&id)
+		require.NoError(t, err)
+		require.Equal(t, int(tagID), id)
+	}
+}
+
+func TestGetTags_PartialMissing(t *testing.T) {
+	runMigrations(t, db)
+
+	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+		Tags: []string{"tagX", "tagY"},
+	})
+	require.NoError(t, err)
+
+	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+		Tags: []string{"tagX", "tagZ"},
+	})
+	require.NoError(t, err)
+	require.Len(t, tags, 1)
+
+	tagID, ok := tags["tagX"]
+	require.True(t, ok)
+
+	row := db.QueryRow("SELECT id FROM tags WHERE tag = $1", "tagX")
+
+	var id int
+	err = row.Scan(&id)
+	require.NoError(t, err)
+	require.Equal(t, int(tagID), id)
+}
+
+func TestGetTags_AllMissing(t *testing.T) {
+	runMigrations(t, db)
+
+	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+		Tags: []string{"missingTag1", "missingTag2"},
+	})
+	require.NoError(t, err)
+	require.Len(t, tags, 0)
+}
+
+func TestGetTags_EmptyInput(t *testing.T) {
+	runMigrations(t, db)
+
+	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+		Tags: []string{},
+	})
+	require.NoError(t, err)
+	require.Len(t, tags, 0)
+}
+
+func TestAddTags(t *testing.T) {
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
-		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordtoadd", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tag addition.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		tagID1 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagToAdd1")
+		tagID2 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagToAdd2")
 	)
 
-	tagID, err := pgstore.GetOrCreateTag(t.Context(), "testtag")
-	require.NoError(t, err)
-
-	pgstore.AddTag(t.Context(), UserPickAddTagRequest{
+	err := pgstore.AddTags(t.Context(), TagsAddRequest{
 		PickID: pickID,
-		TagID:  tagID,
+		TagIDs: []int64{tagID1, tagID2},
 	})
-
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID)
-
-	var count int
-	err = row.Scan(&count)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+
+	row1 := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID1)
+	row2 := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID2)
+
+	var count1, count2 int
+	err = row1.Scan(&count1)
+	require.NoError(t, err)
+	err = row2.Scan(&count2)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, count1)
+	require.Equal(t, 1, count2)
 }
 
-func TestAddTag_PickNotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestAddTags_PickNotFound(t *testing.T) {
+	runMigrations(t, db)
 
-	err := pgstore.AddTag(t.Context(), UserPickAddTagRequest{
+	var tagID = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagForNonExistentPick")
+	err := pgstore.AddTags(t.Context(), TagsAddRequest{
 		PickID: 888888,
-		TagID:  888888,
+		TagIDs: []int64{tagID},
 	})
 	require.Error(t, err)
 	require.Equal(t, ErrNotFound, err)
 }
 
-func TestAddTag_TagNotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestAddTags_TagNotFound(t *testing.T) {
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
-		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordwithmissingtag", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing missing tags.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
-	err := pgstore.AddTag(t.Context(), UserPickAddTagRequest{
+	err := pgstore.AddTags(t.Context(), TagsAddRequest{
 		PickID: pickID,
-		TagID:  999999,
+		TagIDs: []int64{777777},
 	})
 	require.Error(t, err)
 	require.Equal(t, ErrNotFound, err)
 }
 
-func TestRemoveTag(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestAddTags_ExistingTag(t *testing.T) {
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordtoremove", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tag removal.")
-		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
-		tagID  = insert(t, pgstore.db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagtoremove")
-		_      = insert(t, pgstore.db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordwithexistingtag", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing existing tags.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		tagID  = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "existingTag")
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
 	)
-	err := pgstore.RemoveTag(t.Context(), UserPickRemoveTagRequest{
+
+	err := pgstore.AddTags(t.Context(), TagsAddRequest{
 		PickID: pickID,
-		TagID:  tagID,
+		TagIDs: []int64{tagID},
+	})
+	require.Error(t, err)
+	require.Equal(t, ErrExists, err)
+}
+
+func TestRemoveTags_MultipleTags(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID = "user-123"
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "banana", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A yellow fruit")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		tagID1 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tag1")
+		tagID2 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tag2")
+		tagID3 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tag3")
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID1)
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID2)
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID3)
+	)
+
+	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+		PickID: pickID,
+		TagIDs: []int64{tagID1, tagID3},
 	})
 	require.NoError(t, err)
 
-	row := pgstore.db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID)
+	row1 := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID1)
+	row2 := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID2)
+	row3 := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID3)
+
+	var count1, count2, count3 int
+	err = row1.Scan(&count1)
+	require.NoError(t, err)
+	err = row2.Scan(&count2)
+	require.NoError(t, err)
+	err = row3.Scan(&count3)
+	require.NoError(t, err)
+
+	require.Equal(t, 0, count1)
+	require.Equal(t, 1, count2)
+	require.Equal(t, 0, count3)
+}
+
+func TestRemoveTags_SingleTag(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID = "user-123"
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedwordtoremove", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tag removal.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		tagID  = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagtoremove")
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
+	)
+	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+		PickID: pickID,
+		TagIDs: []int64{tagID},
+	})
+	require.NoError(t, err)
+
+	row := db.QueryRow("SELECT COUNT(1) FROM tags_map WHERE pick_id = $1 AND tag_id = $2", pickID, tagID)
 
 	var count int
 	err = row.Scan(&count)
@@ -377,28 +551,28 @@ func TestRemoveTag(t *testing.T) {
 }
 
 func TestRemoveTag_PickNotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+	runMigrations(t, db)
 
-	err := pgstore.RemoveTag(t.Context(), UserPickRemoveTagRequest{
+	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
 		PickID: 888888,
-		TagID:  888888,
+		TagIDs: []int64{888888},
 	})
 	require.NoError(t, err)
 }
 
-func TestRemoveTag_TagNotFound(t *testing.T) {
-	runMigrations(t, pgstore.db)
+func TestRemoveTags_TagNotFound(t *testing.T) {
+	runMigrations(t, db)
 
 	var (
 		userID = "user-123"
-		wordID = insert(t, pgstore.db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
-		defID  = insert(t, pgstore.db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
-		pickID = insert(t, pgstore.db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "taggedword", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing tags.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
-	err := pgstore.RemoveTag(t.Context(), UserPickRemoveTagRequest{
+	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
 		PickID: pickID,
-		TagID:  888888,
+		TagIDs: []int64{888888},
 	})
 	require.NoError(t, err)
 }
