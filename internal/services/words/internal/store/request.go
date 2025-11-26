@@ -1,6 +1,8 @@
 package store
 
-import "github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
+import (
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
+)
 
 type InsertWordRequst struct {
 	Lemma string
@@ -8,7 +10,7 @@ type InsertWordRequst struct {
 	Class model.WordClass
 }
 
-type WordInsertResponse struct {
+type InsertWordResponse struct {
 	ID int64
 }
 
@@ -21,15 +23,25 @@ type CreateUserPickRequest struct {
 	DefID  int64
 }
 
-type DeleteUserPickRequest struct {
-	PickID int64
+type GetUserPicksCursor struct {
+	LastPickID int64
 }
 
-type UserPicksGetRequest struct {
+type GetUserPicksRequest struct {
 	UserID      string
 	WithTags    []int64
 	WithoutTags []int64
-	NextPage    string
+	PageSize    int
+	Cursor      GetUserPicksCursor
+}
+
+type GetUserPicksResponse struct {
+	Picks      []model.UserPick
+	NextCursor *GetUserPicksCursor
+}
+
+type DeleteUserPickRequest struct {
+	PickID int64
 }
 
 type CreateTagsRequest struct {

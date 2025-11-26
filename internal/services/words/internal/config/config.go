@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	ListenAddr    string
-	AuthSecret    string
-	TagsCacheSize int64
-	TagsMaxCost   int64
-	DB            dbConfig
+	ListenAddr  string
+	AuthSecret  string
+	TagsMaxKeys int64
+	TagsMaxCost int64
+	DB          dbConfig
 }
 
 type dbConfig struct {
@@ -23,10 +23,10 @@ type dbConfig struct {
 
 func FromEnv() Config {
 	return Config{
-		ListenAddr:    getEnvString("LISTEN_ADDR", ":8080"),
-		AuthSecret:    os.Getenv("AUTH_SECRET"),
-		TagsCacheSize: getEnvInt64("TAGS_CACHE_SIZE", 10000),
-		TagsMaxCost:   getEnvInt64("TAGS_MAX_COST", 1<<30),
+		ListenAddr:  getEnvString("LISTEN_ADDR", ":8080"),
+		AuthSecret:  os.Getenv("AUTH_SECRET"),
+		TagsMaxKeys: getEnvInt64("TAGS_CACHE_KEYS", 10000),
+		TagsMaxCost: getEnvInt64("TAGS_CACHE_COST", 10000),
 		DB: dbConfig{
 			Host:     getEnvString("DB_HOST", "localhost"),
 			Port:     getEnvString("DB_PORT", "5432"),

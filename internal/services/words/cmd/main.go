@@ -44,7 +44,7 @@ func run(ctx context.Context) error {
 	r.Use(middleware.Auth(cfg.AuthSecret))
 
 	srv := service.NewWordsService(store, service.WordsServiceConfig{
-		TagsCacheSize: cfg.TagsCacheSize,
+		TagsCacheSize: cfg.TagsMaxKeys,
 		TagsMaxCost:   cfg.TagsMaxCost,
 	})
 	api := rest.NewAPI(srv)

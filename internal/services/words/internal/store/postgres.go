@@ -96,6 +96,103 @@ func (s *PostresStore) CreateUserPick(ctx context.Context, r CreateUserPickReque
 	return id, nil
 }
 
+func (s *PostresStore) GetUserPicks(ctx context.Context, r GetUserPicksRequest) (resp GetUserPicksResponse, err error) {
+	sql := `
+		SELECT
+			p.id,
+			p.user_id,
+			p.def_id,
+			d.def,
+			d.rarity,
+			w.id,
+			w.lemma,
+			w.lang,
+			w.class,
+			COALESCE(array_agg(t.tag_id) FILTER (WHERE t.tag_id IS NOT NULL), '{}') AS tag_ids,
+			COALESCE(array_agg(tg.tag) FILTER (WHERE tg.tag IS NOT NULL), '{}') AS tag_texts
+		FROM user_picks AS p
+		LEFT JOIN tags_map AS t
+			ON p.id = t.pick_id
+		LEFT JOIN tags AS tg
+			ON t.tag_id = tg.id
+		JOIN definitions AS d
+			ON p.def_id = d.id
+		JOIN words AS w
+			ON d.word_id = w.id
+		WHERE
+			p.user_id = $1 AND
+			p.id > $2
+		GROUP BY p.id, p.user_id, p.def_id, d.def, d.rarity, w.id, w.lemma, w.lang, w.class
+		HAVING
+			COUNT (DISTINCT t.tag_id) FILTER (WHERE t.tag_id = ANY($3::int[])) = cardinality(COALESCE($3::int[], '{}')) AND
+			COUNT (*) FILTER (WHERE t.tag_id = ANY($4::int[])) = 0
+		ORDER BY p.id
+		LIMIT $5
+	`
+	rows, err := s.db.QueryContext(ctx, sql,
+		r.UserID,
+		r.Cursor.LastPickID,
+		pq.Array(r.WithTags),
+		pq.Array(r.WithoutTags),
+		r.PageSize+1,
+	)
+
+	if err != nil {
+		err = fmt.Errorf("query user picks: %w", err)
+		return
+	}
+	defer rows.Close()
+
+	var picks []model.UserPick
+	for rows.Next() {
+		var pick model.UserPick
+		var tagIDs []int64
+		var tagTexts []string
+		err = rows.Scan(
+			&pick.ID,
+			&pick.UserID,
+			&pick.Definition.ID,
+			&pick.Definition.Text,
+			&pick.Definition.Rarity,
+			&pick.Word.ID,
+			&pick.Word.Lemma,
+			&pick.Word.Lang,
+			&pick.Word.Class,
+			pq.Array(&tagIDs),
+			pq.Array(&tagTexts),
+		)
+		if err != nil {
+			err = fmt.Errorf("scan user pick: %w", err)
+			return
+		}
+
+		for i, tagID := range tagIDs {
+			pick.Tags = append(pick.Tags, model.Tag{
+				ID:   tagID,
+				Text: tagTexts[i],
+			})
+		}
+
+		picks = append(picks, pick)
+	}
+	if err = rows.Err(); err != nil {
+		err = fmt.Errorf("iterate user picks: %w", err)
+		return
+	}
+
+	var nextCursor *GetUserPicksCursor
+	if len(picks) > r.PageSize {
+		picks = picks[:r.PageSize]
+		last := picks[len(picks)-1]
+		nextCursor = &GetUserPicksCursor{LastPickID: last.ID}
+	}
+
+	return GetUserPicksResponse{
+		Picks:      picks,
+		NextCursor: nextCursor,
+	}, nil
+}
+
 func (s *PostresStore) DeleteUserPick(ctx context.Context, r DeleteUserPickRequest) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM user_picks WHERE id = $1", r.PickID)
 	if err != nil {
@@ -131,6 +228,9 @@ func (s *PostresStore) CreateTags(ctx context.Context, r CreateTagsRequest) (mod
 
 		tagIDMap[tag] = id
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tags: %w", err)
+	}
 
 	return tagIDMap, nil
 }
@@ -155,6 +255,9 @@ func (s *PostresStore) GetTags(ctx context.Context, r GetTagsRequest) (model.Tag
 		}
 
 		tagIDMap[tag] = id
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tags: %w", err)
 	}
 
 	return tagIDMap, nil

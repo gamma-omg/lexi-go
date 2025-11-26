@@ -7,9 +7,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -266,6 +268,144 @@ func TestDeleteUserPick(t *testing.T) {
 	err = row.Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
+}
+
+func TestGetUserPicks(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID = "user-123"
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "banana", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A yellow fruit.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+	)
+
+	response, err := pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:   userID,
+		PageSize: 100,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 1)
+
+	assert.Equal(t, pickID, response.Picks[0].ID)
+	assert.Equal(t, userID, response.Picks[0].UserID)
+	assert.Equal(t, "banana", response.Picks[0].Word.Lemma)
+	assert.Equal(t, wordID, response.Picks[0].Word.ID)
+	assert.Equal(t, model.Lang("en"), response.Picks[0].Word.Lang)
+	assert.Equal(t, model.WordClass("noun"), response.Picks[0].Word.Class)
+	assert.Equal(t, defID, response.Picks[0].Definition.ID)
+	assert.Equal(t, "A yellow fruit.", response.Picks[0].Definition.Text)
+	assert.Empty(t, response.Picks[0].Tags)
+}
+
+func TestGetUserPicks_WithTags(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID = "user-123"
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "banana", "en", "noun")
+		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A yellow fruit.")
+		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
+		tagID  = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "testtag")
+		_      = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "apple", "en", "noun")
+		_      = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A common fruit.")
+		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
+	)
+
+	response, err := pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:   userID,
+		WithTags: []int64{tagID},
+		PageSize: 100,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 1)
+	require.Equal(t, pickID, response.Picks[0].ID)
+
+	assert.Equal(t, userID, response.Picks[0].UserID)
+	assert.Equal(t, "banana", response.Picks[0].Word.Lemma)
+	assert.Equal(t, wordID, response.Picks[0].Word.ID)
+	assert.Equal(t, model.Lang("en"), response.Picks[0].Word.Lang)
+	assert.Equal(t, model.WordClass("noun"), response.Picks[0].Word.Class)
+	assert.Equal(t, defID, response.Picks[0].Definition.ID)
+	assert.Equal(t, "A yellow fruit.", response.Picks[0].Definition.Text)
+
+	require.Len(t, response.Picks[0].Tags, 1)
+	assert.Equal(t, tagID, response.Picks[0].Tags[0].ID)
+	assert.Equal(t, "testtag", response.Picks[0].Tags[0].Text)
+}
+
+func TestGetUserPicks_WithoutTags(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID  = "user-123"
+		wordID  = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "nail", "en", "noun")
+		defID1  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A thin metal fastener")
+		defID2  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "The hard part at the tip of a finger or toe")
+		pickID1 = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID1)
+		tagID   = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "unwantedtag")
+		pickID2 = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID2)
+		_       = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID1, tagID)
+	)
+
+	response, err := pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:      userID,
+		WithoutTags: []int64{tagID},
+		PageSize:    100,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 1)
+	require.Equal(t, pickID2, response.Picks[0].ID)
+
+	assert.Equal(t, userID, response.Picks[0].UserID)
+	assert.Equal(t, "nail", response.Picks[0].Word.Lemma)
+	assert.Equal(t, wordID, response.Picks[0].Word.ID)
+	assert.Equal(t, model.Lang("en"), response.Picks[0].Word.Lang)
+	assert.Equal(t, model.WordClass("noun"), response.Picks[0].Word.Class)
+	assert.Equal(t, defID2, response.Picks[0].Definition.ID)
+	assert.Equal(t, "The hard part at the tip of a finger or toe", response.Picks[0].Definition.Text)
+	assert.Len(t, response.Picks[0].Tags, 0)
+}
+
+func TestGetUserPicks_Pagination(t *testing.T) {
+	runMigrations(t, db)
+
+	var (
+		userID = "user-123"
+		wordID = insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "wordforpagination", "en", "noun")
+	)
+
+	for i := 0; i < 5; i++ {
+		defID := insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "Definition "+string(rune('A'+i)))
+		_, err := pgstore.CreateUserPick(t.Context(), CreateUserPickRequest{
+			UserID: userID,
+			DefID:  defID,
+		})
+		require.NoError(t, err)
+	}
+
+	response, err := pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:   userID,
+		PageSize: 2,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 2)
+
+	response, err = pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:   userID,
+		Cursor:   *response.NextCursor,
+		PageSize: 2,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 2)
+
+	response, err = pgstore.GetUserPicks(t.Context(), GetUserPicksRequest{
+		UserID:   userID,
+		Cursor:   *response.NextCursor,
+		PageSize: 2,
+	})
+	require.NoError(t, err)
+	require.Len(t, response.Picks, 1)
 }
 
 func TestDeleteUserPick_NotFound(t *testing.T) {

@@ -25,6 +25,7 @@ const (
 )
 
 type TagIDMap map[string]int64
+type WordIDMap map[int64]Word
 
 type Model struct {
 	CreateAt  time.Time
@@ -33,11 +34,16 @@ type Model struct {
 
 type Word struct {
 	Model
-	ID     int64
-	Lemma  string
-	Lang   Lang
-	Class  WordClass
-	Rarity int
+	ID    int64
+	Lemma string
+	Lang  Lang
+	Class WordClass
+}
+
+type Tag struct {
+	Model
+	ID   int64
+	Text string
 }
 
 type Definition struct {
@@ -45,6 +51,7 @@ type Definition struct {
 	ID     int64
 	WordID int64
 	Text   string
+	Rarity int
 	Source DataSource
 }
 
@@ -65,7 +72,9 @@ type Image struct {
 
 type UserPick struct {
 	Model
-	ID     int64
-	UserID string
-	DefID  int64
+	ID         int64
+	UserID     string
+	Word       Word
+	Definition Definition
+	Tags       []Tag
 }

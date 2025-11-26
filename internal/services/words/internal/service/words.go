@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/gamma-omg/lexi-go/internal/services/words/fn"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 )
@@ -122,6 +125,91 @@ func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) error {
 	return nil
 }
 
+type GetUserPicksRequest struct {
+	UserID      string
+	WithTags    []string
+	WithoutTags []string
+	NextCursor  string
+	PageSize    int
+}
+
+type GetUserPicksResponse struct {
+	Picks      []UserPick
+	NextCursor string
+}
+
+type UserPick struct {
+	ID     int64
+	UserID string
+	Word   string
+	Lang   model.Lang
+	Class  model.WordClass
+	Def    string
+	Tags   []string
+}
+
+// GetUserPicks retrieves a paginated list of a user's picked words, optionally filtered by tags.
+func (s *WordsService) GetUserPicks(ctx context.Context, r GetUserPicksRequest) (resp GetUserPicksResponse, err error) {
+	withTags, missing, err := s.tags.GetTags(ctx, s.store, r.WithTags)
+	if err != nil {
+		err = fmt.Errorf("get with-tags: %w", err)
+		return
+	}
+	if len(missing) > 0 {
+		// No picks can match if some of the requested tags do not exist
+		return
+	}
+
+	withoutTags, _, err := s.tags.GetTags(ctx, s.store, r.WithoutTags)
+	if err != nil {
+		err = fmt.Errorf("get without-tags: %w", err)
+		return
+	}
+
+	cursor := store.GetUserPicksCursor{}
+	if r.NextCursor != "" {
+		cursor, err = decodeCursor[store.GetUserPicksCursor](r.NextCursor)
+		if err != nil {
+			se := NewServiceError(err, http.StatusBadRequest, "invalid pagination cursor")
+			se.Env["cursor"] = r.NextCursor
+			err = se
+			return
+		}
+	}
+
+	response, err := s.store.GetUserPicks(ctx, store.GetUserPicksRequest{
+		UserID:      r.UserID,
+		WithTags:    withTags.IDs(),
+		WithoutTags: withoutTags.IDs(),
+		Cursor:      cursor,
+		PageSize:    r.PageSize,
+	})
+	if err != nil {
+		err = fmt.Errorf("get user picks: %w", err)
+		return
+	}
+
+	resp.Picks = fn.Map(response.Picks, func(pick model.UserPick) UserPick {
+		return UserPick{
+			ID:     pick.ID,
+			UserID: pick.UserID,
+			Word:   pick.Word.Lemma,
+			Lang:   pick.Word.Lang,
+			Class:  pick.Word.Class,
+			Def:    pick.Definition.Text,
+			Tags:   fn.Map(pick.Tags, func(tag model.Tag) string { return tag.Text }),
+		}
+	})
+
+	resp.NextCursor, err = encodeCursor(response.NextCursor)
+	if err != nil {
+		err = fmt.Errorf("encode cursor: %w", err)
+		return
+	}
+
+	return
+}
+
 // UnpickWord allows a user to unpick a previously picked word definition.
 // If the pick does not exist, it returns a ServiceError with status code 404.
 func (s *WordsService) UnpickWord(ctx context.Context, pickID int64) error {
@@ -198,4 +286,18 @@ func (s *WordsService) RemoveTag(ctx context.Context, r RemoveTagRequest) error 
 	}
 
 	return nil
+}
+
+func decodeCursor[T any](s string) (T, error) {
+	var cursor T
+	d := json.NewDecoder(strings.NewReader(s))
+	err := d.Decode(&cursor)
+	return cursor, err
+}
+
+func encodeCursor[T any](c T) (string, error) {
+	var sb strings.Builder
+	e := json.NewEncoder(&sb)
+	err := e.Encode(c)
+	return sb.String(), err
 }

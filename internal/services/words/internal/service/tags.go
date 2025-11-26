@@ -10,15 +10,6 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 )
 
-type tagsStore interface {
-	CreateTags(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
-	GetTags(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
-}
-
-type tagManager struct {
-	cache *ristretto.Cache[string, int64]
-}
-
 type tagSet struct {
 	ids model.TagIDMap
 }
@@ -76,9 +67,20 @@ func (t *tagSet) Len() int {
 	return len(t.ids)
 }
 
-func newTagManager(cacheKeys, maxCost int64) *tagManager {
+// tagsStore defines the methods required to manage tags in the data store.
+type tagsStore interface {
+	CreateTags(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
+	GetTags(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
+}
+
+// tagManager handles retrieval and creation of tags with caching.
+type tagManager struct {
+	cache *ristretto.Cache[string, int64]
+}
+
+func newTagManager(maxKeys, maxCost int64) *tagManager {
 	c, err := ristretto.NewCache(&ristretto.Config[string, int64]{
-		NumCounters: cacheKeys,
+		NumCounters: maxKeys * 10,
 		MaxCost:     maxCost,
 		BufferItems: 64,
 	})

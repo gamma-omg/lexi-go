@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,6 +17,7 @@ type mockStore struct {
 	insertWord         func(ctx context.Context, r store.InsertWordRequst) (int64, error)
 	deleteWord         func(ctx context.Context, r store.DeleteWordRequest) error
 	CreateUserPickFunc func(ctx context.Context, r store.CreateUserPickRequest) (int64, error)
+	GetUserPicksFunc   func(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error)
 	DeleteUserPickFunc func(ctx context.Context, r store.DeleteUserPickRequest) error
 	CreateTagsFunc     func(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
 	GetTagsFunc        func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
@@ -32,6 +35,10 @@ func (m *mockStore) DeleteWord(ctx context.Context, r store.DeleteWordRequest) e
 
 func (m *mockStore) CreateUserPick(ctx context.Context, r store.CreateUserPickRequest) (int64, error) {
 	return m.CreateUserPickFunc(ctx, r)
+}
+
+func (m *mockStore) GetUserPicks(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error) {
+	return m.GetUserPicksFunc(ctx, r)
 }
 
 func (m *mockStore) DeleteUserPick(ctx context.Context, r store.DeleteUserPickRequest) error {
@@ -165,7 +172,7 @@ func TestDeleteWord_NotFound(t *testing.T) {
 func TestPickWord(t *testing.T) {
 	var createdPicks []store.CreateUserPickRequest
 	var addedTags []store.AddTagsRequest
-	userStore := &mockStore{
+	mockStore := &mockStore{
 		CreateTagsFunc: func(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error) {
 			return model.TagIDMap{
 				"important": 100,
@@ -185,7 +192,7 @@ func TestPickWord(t *testing.T) {
 		},
 	}
 
-	srv := NewWordsService(userStore, WordsServiceConfig{
+	srv := NewWordsService(mockStore, WordsServiceConfig{
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
@@ -212,13 +219,13 @@ func TestPickWord(t *testing.T) {
 }
 
 func TestPickWord_Exists(t *testing.T) {
-	userStore := &mockStore{
+	mockStore := &mockStore{
 		CreateUserPickFunc: func(ctx context.Context, r store.CreateUserPickRequest) (int64, error) {
 			return 0, store.ErrExists
 		},
 	}
 
-	srv := NewWordsService(userStore, WordsServiceConfig{
+	srv := NewWordsService(mockStore, WordsServiceConfig{
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
@@ -240,14 +247,14 @@ func TestPickWord_Exists(t *testing.T) {
 
 func TestUnpickWord(t *testing.T) {
 	var deletedPicks []store.DeleteUserPickRequest
-	userStore := &mockStore{
+	mockStore := &mockStore{
 		DeleteUserPickFunc: func(ctx context.Context, r store.DeleteUserPickRequest) error {
 			deletedPicks = append(deletedPicks, r)
 			return nil
 		},
 	}
 
-	srv := NewWordsService(userStore, WordsServiceConfig{
+	srv := NewWordsService(mockStore, WordsServiceConfig{
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
@@ -259,14 +266,139 @@ func TestUnpickWord(t *testing.T) {
 	require.Contains(t, deletedPicks, store.DeleteUserPickRequest{PickID: 456})
 }
 
+func TestGetUserPicks(t *testing.T) {
+	var requests []store.GetUserPicksRequest
+	tagIDs := map[string]int64{
+		"tag1": 1,
+		"tag2": 2,
+		"tag3": 3,
+	}
+	mockStore := &mockStore{
+		GetUserPicksFunc: func(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error) {
+			slices.Sort(r.WithTags)
+			slices.Sort(r.WithoutTags)
+			requests = append(requests, r)
+			return store.GetUserPicksResponse{}, nil
+		},
+		GetTagsFunc: func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error) {
+			ret := make(model.TagIDMap)
+			for _, tag := range r.Tags {
+				ret[tag] = tagIDs[tag]
+			}
+			return ret, nil
+		},
+	}
+
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	_, err := srv.GetUserPicks(context.Background(), GetUserPicksRequest{
+		UserID:      "user-123",
+		WithTags:    []string{"tag1", "tag2"},
+		WithoutTags: []string{"tag3"},
+		PageSize:    10,
+	})
+	require.NoError(t, err)
+
+	require.Len(t, requests, 1)
+	require.Contains(t, requests, store.GetUserPicksRequest{
+		UserID:      "user-123",
+		WithTags:    []int64{1, 2},
+		WithoutTags: []int64{3},
+		PageSize:    10,
+	})
+}
+
+func TestGetUserPicks_MissingTag(t *testing.T) {
+	mockStore := &mockStore{
+		GetTagsFunc: func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{
+				"tag1": 1,
+			}, nil
+		},
+	}
+
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	resp, err := srv.GetUserPicks(context.Background(), GetUserPicksRequest{
+		UserID:      "user-123",
+		WithTags:    []string{"tag1", "tag2"},
+		WithoutTags: []string{},
+		PageSize:    10,
+	})
+	require.NoError(t, err)
+	require.Empty(t, resp.Picks)
+}
+
+func TestGetUserPicks_InvalidExcludeTag(t *testing.T) {
+	var requests []store.GetUserPicksRequest
+	mockStore := &mockStore{
+		GetTagsFunc: func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{}, store.ErrNotFound
+		},
+		GetUserPicksFunc: func(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error) {
+			slices.Sort(r.WithTags)
+			slices.Sort(r.WithoutTags)
+			requests = append(requests, r)
+			return store.GetUserPicksResponse{}, nil
+		},
+	}
+
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	_, err := srv.GetUserPicks(context.Background(), GetUserPicksRequest{
+		UserID:      "user-123",
+		WithTags:    []string{},
+		WithoutTags: []string{"tag2"},
+		PageSize:    10,
+	})
+	require.NoError(t, err)
+	require.Len(t, requests, 1)
+	assert.Contains(t, requests, store.GetUserPicksRequest{
+		UserID:      "user-123",
+		WithTags:    []int64{},
+		WithoutTags: []int64{},
+		PageSize:    10,
+	})
+}
+
+func TestGetUserPicks_InvalidPaginationCursor(t *testing.T) {
+	mockStore := &mockStore{}
+
+	srv := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	_, err := srv.GetUserPicks(context.Background(), GetUserPicksRequest{
+		UserID:     "user-123",
+		NextCursor: "invalid-cursor",
+		PageSize:   10,
+	})
+	require.Error(t, err)
+
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
+	assert.Equal(t, http.StatusBadRequest, se.StatusCode)
+	assert.Equal(t, "invalid-cursor", se.Env["cursor"])
+}
+
 func TestUnpickWord_NotFound(t *testing.T) {
-	userStore := &mockStore{
+	mockStore := &mockStore{
 		DeleteUserPickFunc: func(ctx context.Context, r store.DeleteUserPickRequest) error {
 			return store.ErrNotFound
 		},
 	}
 
-	srv := NewWordsService(userStore, WordsServiceConfig{
+	srv := NewWordsService(mockStore, WordsServiceConfig{
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})

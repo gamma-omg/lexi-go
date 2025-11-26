@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS words (
     lemma TEXT NOT NULL,
     lang VARCHAR(10) NOT NULL,
     class lemma_class,
-    rarity INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (lemma, lang, class)
@@ -30,11 +29,12 @@ CREATE TABLE IF NOT EXISTS definitions (
     id SERIAL PRIMARY KEY,
     word_id INT NOT NULL,
     def TEXT NOT NULL,
+    rarity INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_definitions_word_id ON definitions(word_id);
+CREATE INDEX ON definitions(word_id);
 
 CREATE TABLE IF NOT EXISTS user_picks (
     id SERIAL PRIMARY KEY,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS user_picks (
     FOREIGN KEY (def_id) REFERENCES definitions(id) ON DELETE CASCADE,
     UNIQUE (user_id, def_id)
 );
-CREATE INDEX idx_user_picks_user_id_def_id ON user_picks(user_id, def_id);
+CREATE INDEX ON user_picks(user_id, id);
 
 CREATE TABLE IF NOT EXISTS tags (
     id SERIAL PRIMARY KEY,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS tags (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_tags_tag ON tags(tag);
+CREATE INDEX ON tags(tag);
 
 CREATE TABLE IF NOT EXISTS tags_map (
     id SERIAL PRIMARY KEY,
@@ -65,4 +65,5 @@ CREATE TABLE IF NOT EXISTS tags_map (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
     UNIQUE (pick_id, tag_id)
 );
-CREATE INDEX idx_tags_map_pick_id_tag_id ON tags_map(pick_id, tag_id);
+CREATE INDEX ON tags_map(pick_id, tag_id);
+CREATE INDEX ON tags_map(tag_id, pick_id);
