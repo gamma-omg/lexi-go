@@ -28,7 +28,7 @@ func NewWordsService(store store.DataStore, cfg WordsServiceConfig) *WordsServic
 	}
 }
 
-type WordAddRequest struct {
+type AddWordRequest struct {
 	Lemma string
 	Lang  model.Lang
 	Class model.WordClass
@@ -36,7 +36,7 @@ type WordAddRequest struct {
 
 // AddWord adds a new word to the global word list. If the word already exists,
 // it returns a ServiceError with status code 409. The word is uniquely identified by its lemma, language, and class.
-func (s *WordsService) AddWord(ctx context.Context, r WordAddRequest) (id int64, err error) {
+func (s *WordsService) AddWord(ctx context.Context, r AddWordRequest) (id int64, err error) {
 	id, err = s.store.InsertWord(ctx, store.WordInsertRequest{
 		Lemma: r.Lemma,
 		Lang:  r.Lang,
@@ -72,7 +72,7 @@ func (s *WordsService) DeleteWord(ctx context.Context, id int64) error {
 	return nil
 }
 
-type UserPickWordRequest struct {
+type PickWoardRequest struct {
 	UserID string
 	WordID int64
 	DefID  int64
@@ -81,7 +81,7 @@ type UserPickWordRequest struct {
 
 // PickWord allows a user to pick a word definition for learning. If the pick already exists,
 // it returns a ServiceError with status code 409.
-func (s *WordsService) PickWord(ctx context.Context, r UserPickWordRequest) error {
+func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) error {
 	err := s.store.WithinTx(ctx, func(tx store.DataStore) error {
 		tags, err := s.tags.GetOrCreateTags(ctx, tx, r.Tags)
 		if err != nil {
@@ -138,14 +138,14 @@ func (s *WordsService) UnpickWord(ctx context.Context, pickID int64) error {
 	return nil
 }
 
-type UserPickAddTagRequest struct {
+type AddTagsRequest struct {
 	PickID int64
 	Tags   []string
 }
 
 // AddTags adds tags to a user's picked word. If the pick does not exist,
 // it returns a ServiceError with status code 404.
-func (s *WordsService) AddTags(ctx context.Context, r UserPickAddTagRequest) error {
+func (s *WordsService) AddTags(ctx context.Context, r AddTagsRequest) error {
 	err := s.store.WithinTx(ctx, func(tx store.DataStore) error {
 		tagIDs, err := s.tags.GetOrCreateTags(ctx, tx, r.Tags)
 		if err != nil {
@@ -175,14 +175,14 @@ func (s *WordsService) AddTags(ctx context.Context, r UserPickAddTagRequest) err
 	return nil
 }
 
-type UserPickRemoveTagRequest struct {
+type RemoveTagRequest struct {
 	PickID int64
 	TagID  int64
 }
 
 // RemoveTag removes a tag from a user's picked word. If the pick does not exist,
 // it returns a ServiceError with status code 404.
-func (s *WordsService) RemoveTag(ctx context.Context, r UserPickRemoveTagRequest) error {
+func (s *WordsService) RemoveTag(ctx context.Context, r RemoveTagRequest) error {
 	if err := s.store.RemoveTags(ctx, store.TagsRemoveRequest{
 		PickID: r.PickID,
 		TagIDs: []int64{r.TagID},

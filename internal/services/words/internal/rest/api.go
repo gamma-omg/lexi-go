@@ -36,7 +36,7 @@ func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
 	class := r.PathValue("class")
 	lemma := r.PathValue("lemma")
 
-	_, err := api.svc.AddWord(r.Context(), service.WordAddRequest{
+	_, err := api.svc.AddWord(r.Context(), service.AddWordRequest{
 		Lemma: lemma,
 		Lang:  model.Lang(lang),
 		Class: model.WordClass(class),
@@ -74,7 +74,7 @@ func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.PickWord(r.Context(), service.UserPickWordRequest{
+	err = api.svc.PickWord(r.Context(), service.PickWoardRequest{
 		UserID: middleware.UserIDFromContext(r.Context()),
 		WordID: int64(wordID),
 		DefID:  int64(defID),
@@ -112,7 +112,7 @@ func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.RemoveTag(r.Context(), service.UserPickRemoveTagRequest{
+	err = api.svc.RemoveTag(r.Context(), service.RemoveTagRequest{
 		PickID: pickID,
 		TagID:  tagID,
 	})

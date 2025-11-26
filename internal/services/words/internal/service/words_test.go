@@ -71,7 +71,7 @@ func TestAddWord(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := WordAddRequest{
+	req := AddWordRequest{
 		Lemma: "example",
 		Lang:  "en",
 		Class: model.Noun,
@@ -99,7 +99,7 @@ func TestAddWord_Exists(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := WordAddRequest{
+	req := AddWordRequest{
 		Lemma: "example",
 		Lang:  "en",
 		Class: model.Noun,
@@ -190,7 +190,7 @@ func TestPickWord(t *testing.T) {
 		TagsMaxCost:   100,
 	})
 
-	err := srv.PickWord(context.Background(), UserPickWordRequest{
+	err := srv.PickWord(context.Background(), PickWoardRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
@@ -223,7 +223,7 @@ func TestPickWord_Exists(t *testing.T) {
 		TagsMaxCost:   100,
 	})
 
-	err := srv.PickWord(context.Background(), UserPickWordRequest{
+	err := srv.PickWord(context.Background(), PickWoardRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
@@ -302,7 +302,7 @@ func TestAddTag(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := UserPickAddTagRequest{
+	req := AddTagsRequest{
 		PickID: 456,
 		Tags:   []string{"important", "review"},
 	}
@@ -334,7 +334,7 @@ func TestAddTag_PickNotFound(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := UserPickAddTagRequest{
+	req := AddTagsRequest{
 		PickID: 456,
 		Tags:   []string{"important"},
 	}
@@ -361,7 +361,7 @@ func TestRemoveTag(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := UserPickRemoveTagRequest{
+	req := RemoveTagRequest{
 		PickID: 456,
 		TagID:  789,
 	}
@@ -387,7 +387,7 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := UserPickRemoveTagRequest{
+	req := RemoveTagRequest{
 		PickID: 456,
 		TagID:  789,
 	}
