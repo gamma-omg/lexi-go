@@ -131,7 +131,7 @@ func TestMain(m *testing.M) {
 func TestInsertWord(t *testing.T) {
 	runMigrations(t, db)
 
-	id, err := pgstore.InsertWord(context.Background(), WordInsertRequest{
+	id, err := pgstore.InsertWord(context.Background(), InsertWordRequst{
 		Lemma: "testword",
 		Lang:  "en",
 		Class: "noun",
@@ -151,14 +151,14 @@ func TestInsertWord(t *testing.T) {
 func TestInsertWord_Exists(t *testing.T) {
 	runMigrations(t, db)
 
-	_, err := pgstore.InsertWord(t.Context(), WordInsertRequest{
+	_, err := pgstore.InsertWord(t.Context(), InsertWordRequst{
 		Lemma: "existingword",
 		Lang:  "en",
 		Class: "noun",
 	})
 	require.NoError(t, err)
 
-	_, err = pgstore.InsertWord(t.Context(), WordInsertRequest{
+	_, err = pgstore.InsertWord(t.Context(), InsertWordRequst{
 		Lemma: "existingword",
 		Lang:  "en",
 		Class: "noun",
@@ -170,14 +170,14 @@ func TestInsertWord_Exists(t *testing.T) {
 func TestDeleteWord(t *testing.T) {
 	runMigrations(t, db)
 
-	id, err := pgstore.InsertWord(t.Context(), WordInsertRequest{
+	id, err := pgstore.InsertWord(t.Context(), InsertWordRequst{
 		Lemma: "wordtodelete",
 		Lang:  "en",
 		Class: "verb",
 	})
 	require.NoError(t, err)
 
-	err = pgstore.DeleteWord(t.Context(), WordDeleteRequest{
+	err = pgstore.DeleteWord(t.Context(), DeleteWordRequest{
 		ID: id,
 	})
 	require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestDeleteWord(t *testing.T) {
 func TestDeleteWord_NotFound(t *testing.T) {
 	runMigrations(t, db)
 
-	err := pgstore.DeleteWord(t.Context(), WordDeleteRequest{
+	err := pgstore.DeleteWord(t.Context(), DeleteWordRequest{
 		ID: 999999,
 	})
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestCreateUserPick(t *testing.T) {
 		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing picks.")
 	)
 
-	_, err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err := pgstore.CreateUserPick(t.Context(), CreateUserPickRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
@@ -231,13 +231,13 @@ func TestCreateUserPick_Exists(t *testing.T) {
 		defID  = insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word used for testing existing picks.")
 	)
 
-	_, err := pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err := pgstore.CreateUserPick(t.Context(), CreateUserPickRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
 	require.NoError(t, err)
 
-	_, err = pgstore.CreateUserPick(t.Context(), UserPickCreateRequest{
+	_, err = pgstore.CreateUserPick(t.Context(), CreateUserPickRequest{
 		UserID: userID,
 		DefID:  defID,
 	})
@@ -255,7 +255,7 @@ func TestDeleteUserPick(t *testing.T) {
 		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
-	err := pgstore.DeleteUserPick(t.Context(), UserPickDeleteRequest{
+	err := pgstore.DeleteUserPick(t.Context(), DeleteUserPickRequest{
 		PickID: pickID,
 	})
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestDeleteUserPick(t *testing.T) {
 func TestDeleteUserPick_NotFound(t *testing.T) {
 	runMigrations(t, db)
 
-	err := pgstore.DeleteUserPick(t.Context(), UserPickDeleteRequest{
+	err := pgstore.DeleteUserPick(t.Context(), DeleteUserPickRequest{
 		PickID: 999999,
 	})
 	require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestDeleteUserPick_NotFound(t *testing.T) {
 func TestCreateTags(t *testing.T) {
 	runMigrations(t, db)
 
-	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+	tags, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tag1", "tag2", "tag3"},
 	})
 	require.NoError(t, err)
@@ -302,12 +302,12 @@ func TestCreateTags(t *testing.T) {
 func TestCreateTags_ExistingTags(t *testing.T) {
 	runMigrations(t, db)
 
-	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tag1", "tag2"},
 	})
 	require.NoError(t, err)
 
-	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+	tags, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tag2", "tag3", "tag4"},
 	})
 	require.NoError(t, err)
@@ -328,7 +328,7 @@ func TestCreateTags_ExistingTags(t *testing.T) {
 func TestCreateTags_EmptyInput(t *testing.T) {
 	runMigrations(t, db)
 
-	tags, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{Tags: []string{}})
+	tags, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{Tags: []string{}})
 	require.NoError(t, err)
 	require.Len(t, tags, 0)
 }
@@ -336,12 +336,12 @@ func TestCreateTags_EmptyInput(t *testing.T) {
 func TestGetTags(t *testing.T) {
 	runMigrations(t, db)
 
-	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tagA", "tagB", "tagC"},
 	})
 	require.NoError(t, err)
 
-	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{"tagA", "tagC"},
 	})
 	require.NoError(t, err)
@@ -363,12 +363,12 @@ func TestGetTags(t *testing.T) {
 func TestGetTags_PartialMissing(t *testing.T) {
 	runMigrations(t, db)
 
-	_, err := pgstore.CreateTags(t.Context(), TagsCreateRequest{
+	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tagX", "tagY"},
 	})
 	require.NoError(t, err)
 
-	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{"tagX", "tagZ"},
 	})
 	require.NoError(t, err)
@@ -388,7 +388,7 @@ func TestGetTags_PartialMissing(t *testing.T) {
 func TestGetTags_AllMissing(t *testing.T) {
 	runMigrations(t, db)
 
-	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{"missingTag1", "missingTag2"},
 	})
 	require.NoError(t, err)
@@ -398,7 +398,7 @@ func TestGetTags_AllMissing(t *testing.T) {
 func TestGetTags_EmptyInput(t *testing.T) {
 	runMigrations(t, db)
 
-	tags, err := pgstore.GetTags(t.Context(), TagsGetRequest{
+	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{},
 	})
 	require.NoError(t, err)
@@ -417,7 +417,7 @@ func TestAddTags(t *testing.T) {
 		tagID2 = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagToAdd2")
 	)
 
-	err := pgstore.AddTags(t.Context(), TagsAddRequest{
+	err := pgstore.AddTags(t.Context(), AddTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{tagID1, tagID2},
 	})
@@ -440,7 +440,7 @@ func TestAddTags_PickNotFound(t *testing.T) {
 	runMigrations(t, db)
 
 	var tagID = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagForNonExistentPick")
-	err := pgstore.AddTags(t.Context(), TagsAddRequest{
+	err := pgstore.AddTags(t.Context(), AddTagsRequest{
 		PickID: 888888,
 		TagIDs: []int64{tagID},
 	})
@@ -458,7 +458,7 @@ func TestAddTags_TagNotFound(t *testing.T) {
 		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
-	err := pgstore.AddTags(t.Context(), TagsAddRequest{
+	err := pgstore.AddTags(t.Context(), AddTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{777777},
 	})
@@ -478,7 +478,7 @@ func TestAddTags_ExistingTag(t *testing.T) {
 		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
 	)
 
-	err := pgstore.AddTags(t.Context(), TagsAddRequest{
+	err := pgstore.AddTags(t.Context(), AddTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{tagID},
 	})
@@ -502,7 +502,7 @@ func TestRemoveTags_MultipleTags(t *testing.T) {
 		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID3)
 	)
 
-	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+	err := pgstore.RemoveTags(t.Context(), RemoveTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{tagID1, tagID3},
 	})
@@ -536,7 +536,7 @@ func TestRemoveTags_SingleTag(t *testing.T) {
 		tagID  = insert(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagtoremove")
 		_      = insert(t, db, "INSERT INTO tags_map (pick_id, tag_id) VALUES ($1, $2) RETURNING id", pickID, tagID)
 	)
-	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+	err := pgstore.RemoveTags(t.Context(), RemoveTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{tagID},
 	})
@@ -553,7 +553,7 @@ func TestRemoveTags_SingleTag(t *testing.T) {
 func TestRemoveTag_PickNotFound(t *testing.T) {
 	runMigrations(t, db)
 
-	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+	err := pgstore.RemoveTags(t.Context(), RemoveTagsRequest{
 		PickID: 888888,
 		TagIDs: []int64{888888},
 	})
@@ -570,7 +570,7 @@ func TestRemoveTags_TagNotFound(t *testing.T) {
 		pickID = insert(t, db, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", userID, defID)
 	)
 
-	err := pgstore.RemoveTags(t.Context(), TagsRemoveRequest{
+	err := pgstore.RemoveTags(t.Context(), RemoveTagsRequest{
 		PickID: pickID,
 		TagIDs: []int64{888888},
 	})

@@ -11,8 +11,8 @@ import (
 )
 
 type tagsStore interface {
-	CreateTags(ctx context.Context, r store.TagsCreateRequest) (model.TagIDMap, error)
-	GetTags(ctx context.Context, r store.TagsGetRequest) (model.TagIDMap, error)
+	CreateTags(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
+	GetTags(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
 }
 
 type tagManager struct {
@@ -97,7 +97,7 @@ func (tm *tagManager) GetOrCreateTags(ctx context.Context, ts tagsStore, tags []
 	}
 
 	if len(missing) > 0 {
-		created, err := ts.CreateTags(ctx, store.TagsCreateRequest{Tags: missing})
+		created, err := ts.CreateTags(ctx, store.CreateTagsRequest{Tags: missing})
 		if err != nil {
 			return tagSet{}, fmt.Errorf("create tags: %w", err)
 		}
@@ -123,7 +123,7 @@ func (tm *tagManager) GetTags(ctx context.Context, ts tagsStore, tags []string) 
 	}
 
 	if missing.Len() > 0 {
-		fetched, err := ts.GetTags(ctx, store.TagsGetRequest{Tags: missing.Tags()})
+		fetched, err := ts.GetTags(ctx, store.GetTagsRequest{Tags: missing.Tags()})
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return newEmptyTagSet(), nil, fmt.Errorf("failed to get tags: %w", err)
 		}

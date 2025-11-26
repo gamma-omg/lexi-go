@@ -2,7 +2,7 @@ package store
 
 import "github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 
-type WordInsertRequest struct {
+type InsertWordRequst struct {
 	Lemma string
 	Lang  model.Lang
 	Class model.WordClass
@@ -12,16 +12,16 @@ type WordInsertResponse struct {
 	ID int64
 }
 
-type WordDeleteRequest struct {
+type DeleteWordRequest struct {
 	ID int64
 }
 
-type UserPickCreateRequest struct {
+type CreateUserPickRequest struct {
 	UserID string
 	DefID  int64
 }
 
-type UserPickDeleteRequest struct {
+type DeleteUserPickRequest struct {
 	PickID int64
 }
 
@@ -32,20 +32,20 @@ type UserPicksGetRequest struct {
 	NextPage    string
 }
 
-type TagsCreateRequest struct {
+type CreateTagsRequest struct {
 	Tags []string
 }
 
-type TagsGetRequest struct {
+type GetTagsRequest struct {
 	Tags []string
 }
 
-type TagsAddRequest struct {
+type AddTagsRequest struct {
 	PickID int64
 	TagIDs []int64
 }
 
-type TagsRemoveRequest struct {
+type RemoveTagsRequest struct {
 	PickID int64
 	TagIDs []int64
 }

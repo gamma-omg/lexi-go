@@ -55,7 +55,7 @@ func NewPostgresStore(db *sql.DB) *PostresStore {
 	return &PostresStore{db: db}
 }
 
-func (s *PostresStore) InsertWord(ctx context.Context, r WordInsertRequest) (int64, error) {
+func (s *PostresStore) InsertWord(ctx context.Context, r InsertWordRequst) (int64, error) {
 	res := s.db.QueryRowContext(ctx, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", r.Lemma, r.Lang, r.Class)
 
 	var id int64
@@ -71,7 +71,7 @@ func (s *PostresStore) InsertWord(ctx context.Context, r WordInsertRequest) (int
 	return id, nil
 }
 
-func (s *PostresStore) DeleteWord(ctx context.Context, r WordDeleteRequest) error {
+func (s *PostresStore) DeleteWord(ctx context.Context, r DeleteWordRequest) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM words WHERE id = $1", r.ID)
 	if err != nil {
 		return fmt.Errorf("delete word: %w", err)
@@ -80,7 +80,7 @@ func (s *PostresStore) DeleteWord(ctx context.Context, r WordDeleteRequest) erro
 	return nil
 }
 
-func (s *PostresStore) CreateUserPick(ctx context.Context, r UserPickCreateRequest) (int64, error) {
+func (s *PostresStore) CreateUserPick(ctx context.Context, r CreateUserPickRequest) (int64, error) {
 	res := s.db.QueryRowContext(ctx, "INSERT INTO user_picks (user_id, def_id) VALUES ($1, $2) RETURNING id", r.UserID, r.DefID)
 
 	var id int64
@@ -96,7 +96,7 @@ func (s *PostresStore) CreateUserPick(ctx context.Context, r UserPickCreateReque
 	return id, nil
 }
 
-func (s *PostresStore) DeleteUserPick(ctx context.Context, r UserPickDeleteRequest) error {
+func (s *PostresStore) DeleteUserPick(ctx context.Context, r DeleteUserPickRequest) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM user_picks WHERE id = $1", r.PickID)
 	if err != nil {
 		return fmt.Errorf("delete user pick: %w", err)
@@ -105,7 +105,7 @@ func (s *PostresStore) DeleteUserPick(ctx context.Context, r UserPickDeleteReque
 	return nil
 }
 
-func (s *PostresStore) CreateTags(ctx context.Context, r TagsCreateRequest) (model.TagIDMap, error) {
+func (s *PostresStore) CreateTags(ctx context.Context, r CreateTagsRequest) (model.TagIDMap, error) {
 	if len(r.Tags) == 0 {
 		return model.TagIDMap{}, nil
 	}
@@ -135,7 +135,7 @@ func (s *PostresStore) CreateTags(ctx context.Context, r TagsCreateRequest) (mod
 	return tagIDMap, nil
 }
 
-func (s *PostresStore) GetTags(ctx context.Context, r TagsGetRequest) (model.TagIDMap, error) {
+func (s *PostresStore) GetTags(ctx context.Context, r GetTagsRequest) (model.TagIDMap, error) {
 	if len(r.Tags) == 0 {
 		return model.TagIDMap{}, nil
 	}
@@ -160,7 +160,7 @@ func (s *PostresStore) GetTags(ctx context.Context, r TagsGetRequest) (model.Tag
 	return tagIDMap, nil
 }
 
-func (s *PostresStore) AddTags(ctx context.Context, r TagsAddRequest) error {
+func (s *PostresStore) AddTags(ctx context.Context, r AddTagsRequest) error {
 	_, err := s.db.ExecContext(ctx, "INSERT INTO tags_map (pick_id, tag_id) SELECT $1, UNNEST($2::int[])", r.PickID, pq.Array(r.TagIDs))
 	if err != nil {
 		if isPqErr(err, errUniqueViolation) {
@@ -176,7 +176,7 @@ func (s *PostresStore) AddTags(ctx context.Context, r TagsAddRequest) error {
 	return nil
 }
 
-func (s *PostresStore) RemoveTags(ctx context.Context, r TagsRemoveRequest) error {
+func (s *PostresStore) RemoveTags(ctx context.Context, r RemoveTagsRequest) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM tags_map WHERE pick_id = $1 AND tag_id = ANY($2::int[])", r.PickID, pq.Array(r.TagIDs))
 	if err != nil {
 		return fmt.Errorf("delete tag: %w", err)
