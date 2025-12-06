@@ -14,23 +14,24 @@ import (
 )
 
 type mockStore struct {
-	insertWord         func(ctx context.Context, r store.InsertWordRequst) (int64, error)
-	deleteWord         func(ctx context.Context, r store.DeleteWordRequest) error
-	CreateUserPickFunc func(ctx context.Context, r store.CreateUserPickRequest) (int64, error)
-	GetUserPicksFunc   func(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error)
-	DeleteUserPickFunc func(ctx context.Context, r store.DeleteUserPickRequest) error
-	CreateTagsFunc     func(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
-	GetTagsFunc        func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
-	AddTagsFunc        func(ctx context.Context, r store.AddTagsRequest) error
-	RemoveTagsFunc     func(ctx context.Context, r store.RemoveTagsRequest) error
+	insertWordFunc       func(ctx context.Context, r store.InsertWordRequst) (int64, error)
+	deleteWordFunc       func(ctx context.Context, r store.DeleteWordRequest) error
+	CreateUserPickFunc   func(ctx context.Context, r store.CreateUserPickRequest) (int64, error)
+	GetUserPicksFunc     func(ctx context.Context, r store.GetUserPicksRequest) (store.GetUserPicksResponse, error)
+	DeleteUserPickFunc   func(ctx context.Context, r store.DeleteUserPickRequest) error
+	CreateTagsFunc       func(ctx context.Context, r store.CreateTagsRequest) (model.TagIDMap, error)
+	GetTagsFunc          func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error)
+	AddTagsFunc          func(ctx context.Context, r store.AddTagsRequest) error
+	RemoveTagsFunc       func(ctx context.Context, r store.RemoveTagsRequest) error
+	CreateDefinitionFunc func(ctx context.Context, r store.CreateDefinitionRequest) (int64, error)
 }
 
 func (m *mockStore) InsertWord(ctx context.Context, r store.InsertWordRequst) (int64, error) {
-	return m.insertWord(ctx, r)
+	return m.insertWordFunc(ctx, r)
 }
 
 func (m *mockStore) DeleteWord(ctx context.Context, r store.DeleteWordRequest) error {
-	return m.deleteWord(ctx, r)
+	return m.deleteWordFunc(ctx, r)
 }
 
 func (m *mockStore) CreateUserPick(ctx context.Context, r store.CreateUserPickRequest) (int64, error) {
@@ -61,6 +62,10 @@ func (m *mockStore) RemoveTags(ctx context.Context, r store.RemoveTagsRequest) e
 	return m.RemoveTagsFunc(ctx, r)
 }
 
+func (m *mockStore) CreateDefinition(ctx context.Context, r store.CreateDefinitionRequest) (int64, error) {
+	return m.CreateDefinitionFunc(ctx, r)
+}
+
 func (m *mockStore) WithinTx(ctx context.Context, fn func(tx store.DataStore) error) error {
 	return fn(m)
 }
@@ -68,7 +73,7 @@ func (m *mockStore) WithinTx(ctx context.Context, fn func(tx store.DataStore) er
 func TestAddWord(t *testing.T) {
 	var insertedWords []store.InsertWordRequst
 	mockStore := &mockStore{
-		insertWord: func(ctx context.Context, r store.InsertWordRequst) (int64, error) {
+		insertWordFunc: func(ctx context.Context, r store.InsertWordRequst) (int64, error) {
 			insertedWords = append(insertedWords, r)
 			return 1, nil
 		},
@@ -97,7 +102,7 @@ func TestAddWord(t *testing.T) {
 
 func TestAddWord_Exists(t *testing.T) {
 	mockStore := &mockStore{
-		insertWord: func(ctx context.Context, r store.InsertWordRequst) (int64, error) {
+		insertWordFunc: func(ctx context.Context, r store.InsertWordRequst) (int64, error) {
 			return 0, store.ErrExists
 		},
 	}
@@ -126,7 +131,7 @@ func TestAddWord_Exists(t *testing.T) {
 func TestDeleteWord(t *testing.T) {
 	var deletedWords []store.DeleteWordRequest
 	mockStore := &mockStore{
-		deleteWord: func(ctx context.Context, r store.DeleteWordRequest) error {
+		deleteWordFunc: func(ctx context.Context, r store.DeleteWordRequest) error {
 			deletedWords = append(deletedWords, r)
 			return nil
 		},
@@ -149,7 +154,7 @@ func TestDeleteWord(t *testing.T) {
 
 func TestDeleteWord_NotFound(t *testing.T) {
 	mockStore := &mockStore{
-		deleteWord: func(ctx context.Context, r store.DeleteWordRequest) error {
+		deleteWordFunc: func(ctx context.Context, r store.DeleteWordRequest) error {
 			return store.ErrNotFound
 		},
 	}
@@ -532,4 +537,92 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 	require.Equal(t, "789", se.Env["tag_id"])
+}
+
+func TestCreateDefinition(t *testing.T) {
+	var createdDefinitions []store.CreateDefinitionRequest
+	mockStore := &mockStore{
+		CreateDefinitionFunc: func(ctx context.Context, r store.CreateDefinitionRequest) (int64, error) {
+			createdDefinitions = append(createdDefinitions, r)
+			return int64(len(createdDefinitions)), nil
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+	req := CreateDefinitionRequest{
+		WordID: 123,
+		Text:   "A sample definition.",
+		Rarity: 5,
+		Source: model.SrcUser,
+	}
+
+	defID, err := service.CreateDefinition(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), defID)
+
+	require.Len(t, createdDefinitions, 1)
+	require.Contains(t, createdDefinitions, store.CreateDefinitionRequest{
+		WordID: 123,
+		Text:   "A sample definition.",
+		Rarity: 5,
+		Source: model.SrcUser,
+	})
+}
+
+func TestCreateDefinition_WordNotFound(t *testing.T) {
+	mockStore := &mockStore{
+		CreateDefinitionFunc: func(ctx context.Context, r store.CreateDefinitionRequest) (int64, error) {
+			return 0, store.ErrNotFound
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+	req := CreateDefinitionRequest{
+		WordID: 123,
+		Text:   "A sample definition.",
+		Rarity: 5,
+		Source: model.SrcUser,
+	}
+
+	_, err := service.CreateDefinition(context.Background(), req)
+	require.Error(t, err)
+
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
+	assert.Equal(t, http.StatusNotFound, se.StatusCode)
+	assert.Equal(t, "123", se.Env["word_id"])
+}
+
+func TestCreateDefinition_Exists(t *testing.T) {
+	mockStore := &mockStore{
+		CreateDefinitionFunc: func(ctx context.Context, r store.CreateDefinitionRequest) (int64, error) {
+			return 0, store.ErrExists
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+	req := CreateDefinitionRequest{
+		WordID: 123,
+		Text:   "A sample definition.",
+		Rarity: 5,
+		Source: model.SrcUser,
+	}
+
+	_, err := service.CreateDefinition(context.Background(), req)
+	require.Error(t, err)
+
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
+	assert.Equal(t, http.StatusConflict, se.StatusCode)
+	assert.Equal(t, "123", se.Env["word_id"])
+	assert.Equal(t, "A sample definition.", se.Env["text"])
 }

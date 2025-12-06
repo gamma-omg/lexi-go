@@ -15,6 +15,18 @@ EXCEPTION
         NULL;
 END$$;
 
+DO $$
+BEGIN
+    CREATE TYPE source_type AS ENUM (
+        'unknown',
+        'user',
+        'ai'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN
+        NULL;
+END$$;
+
 CREATE TABLE IF NOT EXISTS words (
     id SERIAL PRIMARY KEY,
     lemma TEXT NOT NULL,
@@ -30,9 +42,11 @@ CREATE TABLE IF NOT EXISTS definitions (
     word_id INT NOT NULL,
     def TEXT NOT NULL,
     rarity INT DEFAULT 0,
+    source source_type DEFAULT 'unknown',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+    UNIQUE (word_id, def)
 );
 CREATE INDEX ON definitions(word_id);
 

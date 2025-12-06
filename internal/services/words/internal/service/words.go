@@ -288,6 +288,40 @@ func (s *WordsService) RemoveTag(ctx context.Context, r RemoveTagRequest) error 
 	return nil
 }
 
+type CreateDefinitionRequest struct {
+	WordID int64
+	Text   string
+	Rarity float32
+	Source model.DataSource
+}
+
+// CreateDefinition creates a new definition for a given word.
+func (s *WordsService) CreateDefinition(ctx context.Context, r CreateDefinitionRequest) (int64, error) {
+	defID, err := s.store.CreateDefinition(ctx, store.CreateDefinitionRequest{
+		WordID: r.WordID,
+		Text:   r.Text,
+		Rarity: r.Rarity,
+		Source: r.Source,
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrExists) {
+			se := NewServiceError(err, http.StatusConflict, "duplicate definition")
+			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
+			se.Env["text"] = r.Text
+			return 0, se
+		}
+		if errors.Is(err, store.ErrNotFound) {
+			se := NewServiceError(err, http.StatusNotFound, "word not found")
+			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
+			return 0, se
+		}
+
+		return 0, fmt.Errorf("create definition: %w", err)
+	}
+
+	return defID, nil
+}
+
 func decodeCursor[T any](s string) (T, error) {
 	var cursor T
 	d := json.NewDecoder(strings.NewReader(s))

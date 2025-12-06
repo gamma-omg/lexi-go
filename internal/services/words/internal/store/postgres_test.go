@@ -716,3 +716,58 @@ func TestRemoveTags_TagNotFound(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestCreateDefinition(t *testing.T) {
+	runMigrations(t, db)
+
+	wordID := insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "defword", "en", "noun")
+
+	defID, err := pgstore.CreateDefinition(t.Context(), CreateDefinitionRequest{
+		WordID: wordID,
+		Text:   "A definition for testing.",
+		Source: model.SrcAI,
+	})
+	require.NoError(t, err)
+
+	row := db.QueryRow("SELECT word_id, def FROM definitions WHERE id = $1", defID)
+
+	var dbWordID int64
+	var defText string
+	err = row.Scan(&dbWordID, &defText)
+	require.NoError(t, err)
+	assert.Equal(t, wordID, dbWordID)
+	assert.Equal(t, "A definition for testing.", defText)
+}
+
+func TestCreateDefinition_Exists(t *testing.T) {
+	runMigrations(t, db)
+
+	wordID := insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingdefword", "en", "noun")
+
+	_, err := pgstore.CreateDefinition(t.Context(), CreateDefinitionRequest{
+		WordID: wordID,
+		Text:   "An existing definition.",
+		Source: model.SrcUser,
+	})
+	require.NoError(t, err)
+
+	_, err = pgstore.CreateDefinition(t.Context(), CreateDefinitionRequest{
+		WordID: wordID,
+		Text:   "An existing definition.",
+		Source: model.SrcAI,
+	})
+	require.Error(t, err)
+	assert.Equal(t, ErrExists, err)
+}
+
+func TestCreateDefinition_WordNotFound(t *testing.T) {
+	runMigrations(t, db)
+
+	_, err := pgstore.CreateDefinition(t.Context(), CreateDefinitionRequest{
+		WordID: 999999,
+		Text:   "Definition for non-existent word.",
+		Source: model.SrcUnknown,
+	})
+	require.Error(t, err)
+	assert.Equal(t, ErrNotFound, err)
+}

@@ -16,5 +16,6 @@ type DataStore interface {
 	GetTags(ctx context.Context, r GetTagsRequest) (model.TagIDMap, error)
 	AddTags(ctx context.Context, r AddTagsRequest) error
 	RemoveTags(ctx context.Context, r RemoveTagsRequest) error
+	CreateDefinition(ctx context.Context, r CreateDefinitionRequest) (int64, error)
 	WithinTx(ctx context.Context, fn func(tx DataStore) error) error
 }

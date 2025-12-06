@@ -61,3 +61,10 @@ type RemoveTagsRequest struct {
 	PickID int64
 	TagIDs []int64
 }
+
+type CreateDefinitionRequest struct {
+	WordID int64
+	Text   string
+	Rarity float32
+	Source model.DataSource
+}

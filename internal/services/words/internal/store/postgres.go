@@ -288,6 +288,29 @@ func (s *PostresStore) RemoveTags(ctx context.Context, r RemoveTagsRequest) erro
 	return nil
 }
 
+func (s *PostresStore) CreateDefinition(ctx context.Context, r CreateDefinitionRequest) (int64, error) {
+	res := s.db.QueryRowContext(ctx, "INSERT INTO definitions (word_id, def, rarity, source) VALUES ($1, $2, $3, $4) RETURNING id",
+		r.WordID,
+		r.Text,
+		r.Rarity,
+		r.Source)
+
+	var id int64
+	err := res.Scan(&id)
+	if err != nil {
+		if isPqErr(err, errForeignKeyViolation) {
+			return 0, ErrNotFound
+		}
+		if isPqErr(err, errUniqueViolation) {
+			return 0, ErrExists
+		}
+
+		return 0, fmt.Errorf("insert definition: %w", err)
+	}
+
+	return id, nil
+}
+
 func (s *PostresStore) WithinTx(ctx context.Context, fn func(tx DataStore) error) error {
 	db, ok := s.db.(*sql.DB)
 	if !ok {

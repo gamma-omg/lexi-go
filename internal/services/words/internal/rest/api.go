@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -17,12 +18,22 @@ type mux interface {
 	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
 }
 
-type API struct {
-	svc *service.WordsService
+type wordsService interface {
+	AddWord(ctx context.Context, r service.AddWordRequest) (int64, error)
+	DeleteWord(ctx context.Context, wordID int64) error
+	PickWord(ctx context.Context, r service.PickWoardRequest) error
+	UnpickWord(ctx context.Context, pickID int64) error
+	GetUserPicks(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
+	RemoveTag(ctx context.Context, r service.RemoveTagRequest) error
+	CreateDefinition(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
 }
 
-func NewAPI(svc *service.WordsService) *API {
-	return &API{svc: svc}
+type API struct {
+	srv wordsService
+}
+
+func NewAPI(srv wordsService) *API {
+	return &API{srv: srv}
 }
 
 func (api *API) Register(m mux) {
@@ -32,6 +43,7 @@ func (api *API) Register(m mux) {
 	m.HandleFunc("DELETE /picks/{pick_id}", api.handleDeletePick)
 	m.HandleFunc("GET /picks/{user_id}", api.handleGetPicks)
 	m.HandleFunc("DELETE /tags/{pick_id}/{tag_id}", api.handleDeleteTag)
+	m.HandleFunc("PUT /definitions", api.handleCreateDefinition)
 }
 
 func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +51,7 @@ func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
 	class := r.PathValue("class")
 	lemma := r.PathValue("lemma")
 
-	_, err := api.svc.AddWord(r.Context(), service.AddWordRequest{
+	_, err := api.srv.AddWord(r.Context(), service.AddWordRequest{
 		Lemma: lemma,
 		Lang:  model.Lang(lang),
 		Class: model.WordClass(class),
@@ -57,7 +69,7 @@ func (api *API) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.DeleteWord(r.Context(), wordID)
+	err = api.srv.DeleteWord(r.Context(), wordID)
 	if err != nil {
 		handleErr(w, r, err)
 		return
@@ -77,7 +89,7 @@ func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.PickWord(r.Context(), service.PickWoardRequest{
+	err = api.srv.PickWord(r.Context(), service.PickWoardRequest{
 		UserID: middleware.UserIDFromContext(r.Context()),
 		WordID: int64(wordID),
 		DefID:  int64(defID),
@@ -95,7 +107,7 @@ func (api *API) handleDeletePick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.UnpickWord(r.Context(), pickID)
+	err = api.srv.UnpickWord(r.Context(), pickID)
 	if err != nil {
 		handleErr(w, r, err)
 		return
@@ -135,7 +147,7 @@ func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := api.svc.GetUserPicks(r.Context(), service.GetUserPicksRequest{
+	resp, err := api.srv.GetUserPicks(r.Context(), service.GetUserPicksRequest{
 		UserID:      userID,
 		WithTags:    req.WithTags,
 		WithoutTags: req.WithoutTags,
@@ -184,10 +196,50 @@ func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = api.svc.RemoveTag(r.Context(), service.RemoveTagRequest{
+	err = api.srv.RemoveTag(r.Context(), service.RemoveTagRequest{
 		PickID: pickID,
 		TagID:  tagID,
 	})
+	if err != nil {
+		handleErr(w, r, err)
+		return
+	}
+}
+
+type createDefinitionRequest struct {
+	WordID int64   `json:"word_id"`
+	Def    string  `json:"def"`
+	Rarity float32 `json:"rarity"`
+	Source string  `json:"source"`
+}
+
+type createDefinitionResponse struct {
+	ID int64 `json:"id"`
+}
+
+func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
+	var req createDefinitionRequest
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&req)
+	if err != nil {
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+	defID, err := api.srv.CreateDefinition(r.Context(), service.CreateDefinitionRequest{
+		WordID: req.WordID,
+		Text:   req.Def,
+		Rarity: float32(req.Rarity),
+		Source: model.DataSource(req.Source),
+	})
+	if err != nil {
+		handleErr(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	err = enc.Encode(createDefinitionResponse{ID: defID})
 	if err != nil {
 		handleErr(w, r, err)
 		return
