@@ -24,6 +24,7 @@ type mockStore struct {
 	AddTagsFunc          func(ctx context.Context, r store.AddTagsRequest) error
 	RemoveTagsFunc       func(ctx context.Context, r store.RemoveTagsRequest) error
 	CreateDefinitionFunc func(ctx context.Context, r store.CreateDefinitionRequest) (int64, error)
+	AttachImageFunc      func(ctx context.Context, r store.AttachImageRequest) (int64, error)
 }
 
 func (m *mockStore) InsertWord(ctx context.Context, r store.InsertWordRequst) (int64, error) {
@@ -64,6 +65,10 @@ func (m *mockStore) RemoveTags(ctx context.Context, r store.RemoveTagsRequest) e
 
 func (m *mockStore) CreateDefinition(ctx context.Context, r store.CreateDefinitionRequest) (int64, error) {
 	return m.CreateDefinitionFunc(ctx, r)
+}
+
+func (m *mockStore) AttachImage(ctx context.Context, r store.AttachImageRequest) (int64, error) {
+	return m.AttachImageFunc(ctx, r)
 }
 
 func (m *mockStore) WithinTx(ctx context.Context, fn func(tx store.DataStore) error) error {
@@ -638,4 +643,91 @@ func TestCreateDefinition_Exists(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, se.StatusCode)
 	assert.Equal(t, "123", se.Env["word_id"])
 	assert.Equal(t, "A sample definition.", se.Env["text"])
+}
+
+func TestAttachImage(t *testing.T) {
+	req := AttachImageRequest{
+		DefID:    123,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   model.SrcUser,
+	}
+
+	var attachedImages []store.AttachImageRequest
+	mockStore := &mockStore{
+		AttachImageFunc: func(ctx context.Context, r store.AttachImageRequest) (int64, error) {
+			attachedImages = append(attachedImages, r)
+			return int64(len(attachedImages)), nil
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	imageID, err := service.AttachImage(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), imageID)
+
+	require.Len(t, attachedImages, 1)
+	require.Contains(t, attachedImages, store.AttachImageRequest{
+		DefID:    123,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   model.SrcUser,
+	})
+}
+
+func TestAttachImage_DefinitionNotFound(t *testing.T) {
+	req := AttachImageRequest{
+		DefID:    123,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   model.SrcUser,
+	}
+
+	mockStore := &mockStore{
+		AttachImageFunc: func(ctx context.Context, r store.AttachImageRequest) (int64, error) {
+			return 0, store.ErrNotFound
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	_, err := service.AttachImage(context.Background(), req)
+	require.Error(t, err)
+
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
+	assert.Equal(t, http.StatusNotFound, se.StatusCode)
+	assert.Equal(t, "123", se.Env["def_id"])
+}
+
+func TestAttachImage_Exists(t *testing.T) {
+	req := AttachImageRequest{
+		DefID:    123,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   model.SrcUser,
+	}
+
+	mockStore := &mockStore{
+		AttachImageFunc: func(ctx context.Context, r store.AttachImageRequest) (int64, error) {
+			return 0, store.ErrExists
+		},
+	}
+
+	service := NewWordsService(mockStore, WordsServiceConfig{
+		TagsCacheSize: 100,
+		TagsMaxCost:   100,
+	})
+
+	_, err := service.AttachImage(context.Background(), req)
+	require.Error(t, err)
+
+	var se *ServiceError
+	require.True(t, errors.As(err, &se))
+	assert.Equal(t, http.StatusConflict, se.StatusCode)
+	assert.Equal(t, "123", se.Env["def_id"])
+	assert.Equal(t, "http://example.com/image.jpg", se.Env["image_url"])
 }

@@ -68,3 +68,9 @@ type CreateDefinitionRequest struct {
 	Rarity float32
 	Source model.DataSource
 }
+
+type AttachImageRequest struct {
+	DefID    int64
+	ImageURL string
+	Source   model.DataSource
+}

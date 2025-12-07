@@ -311,6 +311,27 @@ func (s *PostresStore) CreateDefinition(ctx context.Context, r CreateDefinitionR
 	return id, nil
 }
 
+func (s *PostresStore) AttachImage(ctx context.Context, r AttachImageRequest) (int64, error) {
+	res := s.db.QueryRowContext(ctx, "INSERT INTO images(def_id, url, source) VALUES ($1, $2, $3) RETURNING id",
+		r.DefID,
+		r.ImageURL,
+		r.Source)
+
+	var id int64
+	if err := res.Scan(&id); err != nil {
+		if isPqErr(err, errForeignKeyViolation) {
+			return 0, ErrNotFound
+		}
+		if isPqErr(err, errUniqueViolation) {
+			return 0, ErrExists
+		}
+
+		return 0, fmt.Errorf("insert image: %w", err)
+	}
+
+	return id, nil
+}
+
 func (s *PostresStore) WithinTx(ctx context.Context, fn func(tx DataStore) error) error {
 	db, ok := s.db.(*sql.DB)
 	if !ok {

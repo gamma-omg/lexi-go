@@ -23,6 +23,7 @@ type mockWordsService struct {
 	GetUserPicksFunc     func(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
 	RemoveTagsFunc       func(ctx context.Context, r service.RemoveTagsRequest) error
 	CreateDefinitionFunc func(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
+	AttachImageFunc      func(ctx context.Context, r service.AttachImageRequest) (int64, error)
 }
 
 func (m *mockWordsService) AddWord(ctx context.Context, r service.AddWordRequest) (int64, error) {
@@ -51,6 +52,10 @@ func (m *mockWordsService) RemoveTags(ctx context.Context, r service.RemoveTagsR
 
 func (m *mockWordsService) CreateDefinition(ctx context.Context, r service.CreateDefinitionRequest) (int64, error) {
 	return m.CreateDefinitionFunc(ctx, r)
+}
+
+func (m *mockWordsService) AttachImage(ctx context.Context, r service.AttachImageRequest) (int64, error) {
+	return m.AttachImageFunc(ctx, r)
 }
 
 func sendRequest(t *testing.T, mux *http.ServeMux, method, path string, body any) *httptest.ResponseRecorder {
@@ -357,5 +362,45 @@ func TestPUTDefinition_BadRequest(t *testing.T) {
 	api.Register(mux)
 
 	rec := sendRequest(t, mux, "PUT", "/definitions", "invalid json")
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestPUTImage(t *testing.T) {
+	req := attachImageRequest{
+		DefID:    123,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   "test-source",
+	}
+	api := &API{
+		srv: &mockWordsService{
+			AttachImageFunc: func(ctx context.Context, r service.AttachImageRequest) (int64, error) {
+				if r.DefID == req.DefID && r.ImageURL == req.ImageURL && string(r.Source) == req.Source {
+					return 42, nil
+				}
+
+				return 0, errors.New("unexpected request")
+			},
+		},
+	}
+
+	mux := http.NewServeMux()
+	api.Register(mux)
+
+	rec := sendRequest(t, mux, "PUT", "/images", req)
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	resp := parseResponse[attachImageResponse](t, rec)
+	assert.Equal(t, int64(42), resp.ImageID)
+}
+
+func TestPUTImage_BadRequest(t *testing.T) {
+	api := &API{
+		srv: &mockWordsService{},
+	}
+
+	mux := http.NewServeMux()
+	api.Register(mux)
+
+	rec := sendRequest(t, mux, "PUT", "/images", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

@@ -50,6 +50,18 @@ CREATE TABLE IF NOT EXISTS definitions (
 );
 CREATE INDEX ON definitions(word_id);
 
+CREATE TABLE IF NOT EXISTS images (
+    id SERIAL PRIMARY KEY,
+    def_id INT NOT NULL,
+    url TEXT NOT NULL,
+    source source_type DEFAULT 'unknown',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (def_id) REFERENCES definitions(id) ON DELETE CASCADE,
+    UNIQUE (def_id, url)
+);
+CREATE INDEX ON images(def_id);
+
 CREATE TABLE IF NOT EXISTS user_picks (
     id SERIAL PRIMARY KEY,
     user_id TEXT NOT NULL,

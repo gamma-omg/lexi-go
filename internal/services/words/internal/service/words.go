@@ -332,6 +332,38 @@ func (s *WordsService) CreateDefinition(ctx context.Context, r CreateDefinitionR
 	return defID, nil
 }
 
+type AttachImageRequest struct {
+	DefID    int64
+	ImageURL string
+	Source   model.DataSource
+}
+
+// AttachImage attaches an image to a word definition.
+func (s *WordsService) AttachImage(ctx context.Context, r AttachImageRequest) (int64, error) {
+	imageID, err := s.store.AttachImage(ctx, store.AttachImageRequest{
+		DefID:    r.DefID,
+		ImageURL: r.ImageURL,
+		Source:   r.Source,
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrExists) {
+			se := NewServiceError(err, http.StatusConflict, "image already attached to definition")
+			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
+			se.Env["image_url"] = r.ImageURL
+			return 0, se
+		}
+		if errors.Is(err, store.ErrNotFound) {
+			se := NewServiceError(err, http.StatusNotFound, "definition not found")
+			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
+			return 0, se
+		}
+
+		return 0, fmt.Errorf("attach image: %w", err)
+	}
+
+	return imageID, nil
+}
+
 func decodeCursor[T any](s string) (T, error) {
 	var cursor T
 	d := json.NewDecoder(strings.NewReader(s))

@@ -26,6 +26,7 @@ type wordsService interface {
 	GetUserPicks(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
 	RemoveTags(ctx context.Context, r service.RemoveTagsRequest) error
 	CreateDefinition(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
+	AttachImage(ctx context.Context, r service.AttachImageRequest) (int64, error)
 }
 
 type API struct {
@@ -44,6 +45,7 @@ func (api *API) Register(m mux) {
 	m.HandleFunc("GET /picks", api.handleGetPicks)
 	m.HandleFunc("DELETE /tags", api.handleDeleteTag)
 	m.HandleFunc("PUT /definitions", api.handleCreateDefinition)
+	m.HandleFunc("PUT /images", api.handleAttachImage)
 }
 
 type addWordRequest struct {
@@ -256,6 +258,36 @@ func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeResponse(w, http.StatusCreated, createDefinitionResponse{ID: defID})
+}
+
+type attachImageRequest struct {
+	DefID    int64  `json:"def_id"`
+	ImageURL string `json:"image_url"`
+	Source   string `json:"source"`
+}
+
+type attachImageResponse struct {
+	ImageID int64 `json:"image_id"`
+}
+
+func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
+	req, err := parseRequest[attachImageRequest](r)
+	if err != nil {
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+	imageID, err := api.srv.AttachImage(r.Context(), service.AttachImageRequest{
+		DefID:    req.DefID,
+		ImageURL: req.ImageURL,
+		Source:   model.DataSource(req.Source),
+	})
+	if err != nil {
+		handleErr(w, r, err)
+		return
+	}
+
+	writeResponse(w, http.StatusCreated, attachImageResponse{ImageID: imageID})
 }
 
 func idFromRequest(r *http.Request, param string) (int64, error) {

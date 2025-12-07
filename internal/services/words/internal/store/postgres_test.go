@@ -771,3 +771,58 @@ func TestCreateDefinition_WordNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, ErrNotFound, err)
 }
+
+func TestAttachImage(t *testing.T) {
+	runMigrations(t, db)
+
+	wordID := insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "imageword", "en", "noun")
+	defID := insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word for testing image attachment.")
+
+	imgID, err := pgstore.AttachImage(t.Context(), AttachImageRequest{
+		DefID:    defID,
+		ImageURL: "http://example.com/image.jpg",
+		Source:   model.SrcUser,
+	})
+	require.NoError(t, err)
+
+	row := db.QueryRow("SELECT url FROM images WHERE id = $1", imgID)
+
+	var imageURL string
+	err = row.Scan(&imageURL)
+	require.NoError(t, err)
+	assert.Equal(t, "http://example.com/image.jpg", imageURL)
+}
+
+func TestAttachImage_DefinitionNotFound(t *testing.T) {
+	runMigrations(t, db)
+
+	_, err := pgstore.AttachImage(t.Context(), AttachImageRequest{
+		DefID:    999999,
+		ImageURL: "http://example.com/nonexistent.jpg",
+		Source:   model.SrcAI,
+	})
+	require.Error(t, err)
+	assert.Equal(t, ErrNotFound, err)
+}
+
+func TestAttachImage_Exists(t *testing.T) {
+	runMigrations(t, db)
+
+	wordID := insert(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingimageword", "en", "noun")
+	defID := insert(t, db, "INSERT INTO definitions (word_id, def) VALUES ($1, $2) RETURNING id", wordID, "A word with existing image.")
+
+	_, err := pgstore.AttachImage(t.Context(), AttachImageRequest{
+		DefID:    defID,
+		ImageURL: "http://example.com/newimage.jpg",
+		Source:   model.SrcUnknown,
+	})
+	require.NoError(t, err)
+
+	_, err = pgstore.AttachImage(t.Context(), AttachImageRequest{
+		DefID:    defID,
+		ImageURL: "http://example.com/newimage.jpg",
+		Source:   model.SrcUser,
+	})
+	require.Error(t, err)
+	assert.Equal(t, ErrExists, err)
+}
