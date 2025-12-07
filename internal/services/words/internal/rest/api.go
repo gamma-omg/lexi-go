@@ -21,10 +21,10 @@ type mux interface {
 type wordsService interface {
 	AddWord(ctx context.Context, r service.AddWordRequest) (int64, error)
 	DeleteWord(ctx context.Context, wordID int64) error
-	PickWord(ctx context.Context, r service.PickWoardRequest) error
+	PickWord(ctx context.Context, r service.PickWoardRequest) (int64, error)
 	UnpickWord(ctx context.Context, pickID int64) error
 	GetUserPicks(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
-	RemoveTag(ctx context.Context, r service.RemoveTagRequest) error
+	RemoveTags(ctx context.Context, r service.RemoveTagsRequest) error
 	CreateDefinition(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
 }
 
@@ -37,29 +37,43 @@ func NewAPI(srv wordsService) *API {
 }
 
 func (api *API) Register(m mux) {
-	m.HandleFunc("PUT /words/{lang}/{class}/{lemma}", api.handleAddWord)
+	m.HandleFunc("PUT /words", api.handleAddWord)
 	m.HandleFunc("DELETE /words/{word_id}", api.handleDeleteWord)
-	m.HandleFunc("PUT /picks/{word_id}/{def_id}", api.handlePickWord)
+	m.HandleFunc("PUT /picks", api.handlePickWord)
 	m.HandleFunc("DELETE /picks/{pick_id}", api.handleDeletePick)
-	m.HandleFunc("GET /picks/{user_id}", api.handleGetPicks)
-	m.HandleFunc("DELETE /tags/{pick_id}/{tag_id}", api.handleDeleteTag)
+	m.HandleFunc("GET /picks", api.handleGetPicks)
+	m.HandleFunc("DELETE /tags", api.handleDeleteTag)
 	m.HandleFunc("PUT /definitions", api.handleCreateDefinition)
 }
 
-func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
-	lang := r.PathValue("lang")
-	class := r.PathValue("class")
-	lemma := r.PathValue("lemma")
+type addWordRequest struct {
+	Lemma string `json:"lemma"`
+	Lang  string `json:"lang"`
+	Class string `json:"class"`
+}
 
-	_, err := api.srv.AddWord(r.Context(), service.AddWordRequest{
-		Lemma: lemma,
-		Lang:  model.Lang(lang),
-		Class: model.WordClass(class),
+type addWordResponse struct {
+	ID int64 `json:"id"`
+}
+
+func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
+	req, err := parseRequest[addWordRequest](r)
+	if err != nil {
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+	id, err := api.srv.AddWord(r.Context(), service.AddWordRequest{
+		Lemma: req.Lemma,
+		Lang:  model.Lang(req.Lang),
+		Class: model.WordClass(req.Class),
 	})
 	if err != nil {
 		handleErr(w, r, err)
 		return
 	}
+
+	writeResponse(w, http.StatusCreated, addWordResponse{ID: id})
 }
 
 func (api *API) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
@@ -74,30 +88,40 @@ func (api *API) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, r, err)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type pickWordRequest struct {
+	UserID string   `json:"user_id"`
+	WordID int64    `json:"word_id"`
+	DefID  int64    `json:"def_id"`
+	Tags   []string `json:"tags"`
+}
+
+type pickWordResponse struct {
+	PickID int64 `json:"pick_id"`
 }
 
 func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
-	wordID, err := idFromRequest(r, "word_id")
+	req, err := parseRequest[pickWordRequest](r)
 	if err != nil {
-		handleErr(w, r, err)
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
-	defID, err := idFromRequest(r, "def_id")
-	if err != nil {
-		handleErr(w, r, err)
-		return
-	}
-
-	err = api.srv.PickWord(r.Context(), service.PickWoardRequest{
+	pickID, err := api.srv.PickWord(r.Context(), service.PickWoardRequest{
 		UserID: middleware.UserIDFromContext(r.Context()),
-		WordID: int64(wordID),
-		DefID:  int64(defID),
+		WordID: req.WordID,
+		DefID:  req.DefID,
+		Tags:   req.Tags,
 	})
 	if err != nil {
 		handleErr(w, r, err)
 		return
 	}
+
+	writeResponse(w, http.StatusCreated, pickWordResponse{PickID: pickID})
 }
 
 func (api *API) handleDeletePick(w http.ResponseWriter, r *http.Request) {
@@ -112,9 +136,12 @@ func (api *API) handleDeletePick(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, r, err)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type getPicksRequest struct {
+	UserID      string   `json:"user_id"`
 	WithTags    []string `json:"with_tags"`
 	WithoutTags []string `json:"without_tags"`
 	PageSize    int      `json:"page_size"`
@@ -137,18 +164,14 @@ type userPickResponse struct {
 }
 
 func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
-	userID := r.PathValue("user_id")
-
-	var req getPicksRequest
-	d := json.NewDecoder(r.Body)
-	err := d.Decode(&req)
+	req, err := parseRequest[getPicksRequest](r)
 	if err != nil {
 		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
 	resp, err := api.srv.GetUserPicks(r.Context(), service.GetUserPicksRequest{
-		UserID:      userID,
+		UserID:      req.UserID,
 		WithTags:    req.WithTags,
 		WithoutTags: req.WithoutTags,
 		PageSize:    req.PageSize,
@@ -159,8 +182,7 @@ func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	out := getPicksResponse{
+	err = writeResponse(w, http.StatusOK, getPicksResponse{
 		Picks: fn.Map(resp.Picks, func(pick service.UserPick) userPickResponse {
 			return userPickResponse{
 				ID:     pick.ID,
@@ -173,37 +195,35 @@ func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 			}
 		}),
 		NextCursor: resp.NextCursor,
-	}
-
-	enc := json.NewEncoder(w)
-	err = enc.Encode(out)
+	})
 	if err != nil {
 		handleErr(w, r, err)
 		return
 	}
 }
 
+type deleteTagRequest struct {
+	PickID int64    `json:"pick_id"`
+	Tags   []string `json:"tags"`
+}
+
 func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
-	pickID, err := idFromRequest(r, "pick_id")
+	req, err := parseRequest[deleteTagRequest](r)
 	if err != nil {
-		handleErr(w, r, err)
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
-	tagID, err := idFromRequest(r, "tag_id")
-	if err != nil {
-		handleErr(w, r, err)
-		return
-	}
-
-	err = api.srv.RemoveTag(r.Context(), service.RemoveTagRequest{
-		PickID: pickID,
-		TagID:  tagID,
+	err = api.srv.RemoveTags(r.Context(), service.RemoveTagsRequest{
+		PickID: req.PickID,
+		Tags:   req.Tags,
 	})
 	if err != nil {
 		handleErr(w, r, err)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type createDefinitionRequest struct {
@@ -218,9 +238,7 @@ type createDefinitionResponse struct {
 }
 
 func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
-	var req createDefinitionRequest
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&req)
+	req, err := parseRequest[createDefinitionRequest](r)
 	if err != nil {
 		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
@@ -237,13 +255,7 @@ func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	err = enc.Encode(createDefinitionResponse{ID: defID})
-	if err != nil {
-		handleErr(w, r, err)
-		return
-	}
+	writeResponse(w, http.StatusCreated, createDefinitionResponse{ID: defID})
 }
 
 func idFromRequest(r *http.Request, param string) (int64, error) {
@@ -254,6 +266,20 @@ func idFromRequest(r *http.Request, param string) (int64, error) {
 	}
 
 	return int64(id), nil
+}
+
+func parseRequest[T any](r *http.Request) (T, error) {
+	var req T
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&req)
+	return req, err
+}
+
+func writeResponse[T any](w http.ResponseWriter, status int, resp T) error {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	return enc.Encode(resp)
 }
 
 func handleErr(w http.ResponseWriter, r *http.Request, err error) {

@@ -84,14 +84,15 @@ type PickWoardRequest struct {
 
 // PickWord allows a user to pick a word definition for learning. If the pick already exists,
 // it returns a ServiceError with status code 409.
-func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) error {
+func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) (int64, error) {
+	var pickID int64
 	err := s.store.WithinTx(ctx, func(tx store.DataStore) error {
 		tags, err := s.tags.GetOrCreateTags(ctx, tx, r.Tags)
 		if err != nil {
 			return fmt.Errorf("get or create tags: %w", err)
 		}
 
-		pickID, err := tx.CreateUserPick(ctx, store.CreateUserPickRequest{
+		pickID, err = tx.CreateUserPick(ctx, store.CreateUserPickRequest{
 			UserID: r.UserID,
 			DefID:  r.DefID,
 		})
@@ -119,10 +120,10 @@ func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("pick word: %w", err)
+		return 0, fmt.Errorf("pick word: %w", err)
 	}
 
-	return nil
+	return pickID, nil
 }
 
 type GetUserPicksRequest struct {
@@ -263,22 +264,31 @@ func (s *WordsService) AddTags(ctx context.Context, r AddTagsRequest) error {
 	return nil
 }
 
-type RemoveTagRequest struct {
+type RemoveTagsRequest struct {
 	PickID int64
-	TagID  int64
+	Tags   []string
 }
 
 // RemoveTag removes a tag from a user's picked word. If the pick does not exist,
 // it returns a ServiceError with status code 404.
-func (s *WordsService) RemoveTag(ctx context.Context, r RemoveTagRequest) error {
+func (s *WordsService) RemoveTags(ctx context.Context, r RemoveTagsRequest) error {
+	tags, _, err := s.tags.GetTags(ctx, s.store, r.Tags)
+	if err != nil {
+		return fmt.Errorf("get tags: %w", err)
+	}
+
+	if tags.Len() == 0 {
+		// No tags to remove
+		return nil
+	}
+
 	if err := s.store.RemoveTags(ctx, store.RemoveTagsRequest{
 		PickID: r.PickID,
-		TagIDs: []int64{r.TagID},
+		TagIDs: tags.IDs(),
 	}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
 			se.Env["pick_id"] = fmt.Sprintf("%d", r.PickID)
-			se.Env["tag_id"] = fmt.Sprintf("%d", r.TagID)
 			return se
 		}
 

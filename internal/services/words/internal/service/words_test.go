@@ -188,6 +188,7 @@ func TestPickWord(t *testing.T) {
 			return model.TagIDMap{}, nil
 		},
 		AddTagsFunc: func(ctx context.Context, r store.AddTagsRequest) error {
+			slices.Sort(r.TagIDs)
 			addedTags = append(addedTags, r)
 			return nil
 		},
@@ -202,7 +203,7 @@ func TestPickWord(t *testing.T) {
 		TagsMaxCost:   100,
 	})
 
-	err := srv.PickWord(context.Background(), PickWoardRequest{
+	pickID, err := srv.PickWord(context.Background(), PickWoardRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
@@ -221,6 +222,8 @@ func TestPickWord(t *testing.T) {
 		PickID: 1,
 		TagIDs: []int64{100, 200},
 	})
+
+	require.Equal(t, int64(1), pickID)
 }
 
 func TestPickWord_Exists(t *testing.T) {
@@ -235,7 +238,7 @@ func TestPickWord_Exists(t *testing.T) {
 		TagsMaxCost:   100,
 	})
 
-	err := srv.PickWord(context.Background(), PickWoardRequest{
+	_, err := srv.PickWord(context.Background(), PickWoardRequest{
 		UserID: "user-123",
 		WordID: 456,
 		DefID:  789,
@@ -430,6 +433,7 @@ func TestAddTag(t *testing.T) {
 			return model.TagIDMap{}, nil
 		},
 		AddTagsFunc: func(ctx context.Context, r store.AddTagsRequest) error {
+			slices.Sort(r.TagIDs)
 			addedTags = append(addedTags, r)
 			return nil
 		},
@@ -485,9 +489,14 @@ func TestAddTag_PickNotFound(t *testing.T) {
 	require.Equal(t, "456", se.Env["pick_id"])
 }
 
-func TestRemoveTag(t *testing.T) {
+func TestRemoveTags(t *testing.T) {
 	var removedTags []store.RemoveTagsRequest
 	mockStore := &mockStore{
+		GetTagsFunc: func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{
+				"TestTag": 789,
+			}, nil
+		},
 		RemoveTagsFunc: func(ctx context.Context, r store.RemoveTagsRequest) error {
 			removedTags = append(removedTags, r)
 			return nil
@@ -498,12 +507,12 @@ func TestRemoveTag(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := RemoveTagRequest{
+	req := RemoveTagsRequest{
 		PickID: 456,
-		TagID:  789,
+		Tags:   []string{"TestTag"},
 	}
 
-	err := srv.RemoveTag(context.Background(), req)
+	err := srv.RemoveTags(context.Background(), req)
 	require.NoError(t, err)
 
 	require.Len(t, removedTags, 1)
@@ -515,6 +524,11 @@ func TestRemoveTag(t *testing.T) {
 
 func TestRemoveTag_PickNotFound(t *testing.T) {
 	mockStore := &mockStore{
+		GetTagsFunc: func(ctx context.Context, r store.GetTagsRequest) (model.TagIDMap, error) {
+			return model.TagIDMap{
+				"TestTag": 789,
+			}, nil
+		},
 		RemoveTagsFunc: func(ctx context.Context, r store.RemoveTagsRequest) error {
 			return store.ErrNotFound
 		},
@@ -524,19 +538,18 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 		TagsCacheSize: 100,
 		TagsMaxCost:   100,
 	})
-	req := RemoveTagRequest{
+	req := RemoveTagsRequest{
 		PickID: 456,
-		TagID:  789,
+		Tags:   []string{"TestTag"},
 	}
 
-	err := srv.RemoveTag(context.Background(), req)
+	err := srv.RemoveTags(context.Background(), req)
 	require.Error(t, err)
 
 	var se *ServiceError
 	require.True(t, errors.As(err, &se))
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
-	require.Equal(t, "789", se.Env["tag_id"])
 }
 
 func TestCreateDefinition(t *testing.T) {
