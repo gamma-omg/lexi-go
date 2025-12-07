@@ -2,13 +2,18 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFromEnv(t *testing.T) {
-	t.Setenv("LISTEN_ADDR", ":9090")
+	t.Setenv("HTTP_LISTEN_ADDR", ":9090")
+	t.Setenv("HTTP_IDLE_TIMEOUT", "70s")
+	t.Setenv("HTTP_READ_TIMEOUT", "40s")
+	t.Setenv("HTTP_WRITE_TIMEOUT", "50s")
+	t.Setenv("HTTP_SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("AUTH_SECRET", "supersecret")
 	t.Setenv("TAGS_CACHE_KEYS", "200")
 	t.Setenv("TAGS_CACHE_COST", "300")
@@ -20,7 +25,6 @@ func TestFromEnv(t *testing.T) {
 
 	cfg := config.FromEnv()
 
-	assert.Equal(t, ":9090", cfg.ListenAddr)
 	assert.Equal(t, "supersecret", cfg.AuthSecret)
 	assert.Equal(t, int64(200), cfg.TagsMaxKeys)
 	assert.Equal(t, int64(300), cfg.TagsMaxCost)
@@ -29,12 +33,16 @@ func TestFromEnv(t *testing.T) {
 	assert.Equal(t, "testuser", cfg.DB.User)
 	assert.Equal(t, "testpass", cfg.DB.Password)
 	assert.Equal(t, "testdb", cfg.DB.Name)
+	assert.Equal(t, ":9090", cfg.Http.ListenAddr)
+	assert.Equal(t, 70*time.Second, cfg.Http.IdleTimeout)
+	assert.Equal(t, 40*time.Second, cfg.Http.ReadTimeout)
+	assert.Equal(t, 50*time.Second, cfg.Http.WriteTimeout)
+	assert.Equal(t, 15*time.Second, cfg.Http.ShutdownTimeout)
 }
 
 func TestFromEnv_Defaults(t *testing.T) {
 	cfg := config.FromEnv()
 
-	assert.Equal(t, ":8080", cfg.ListenAddr)
 	assert.Equal(t, "", cfg.AuthSecret)
 	assert.Equal(t, int64(10000), cfg.TagsMaxKeys)
 	assert.Equal(t, int64(10000), cfg.TagsMaxCost)
@@ -43,4 +51,9 @@ func TestFromEnv_Defaults(t *testing.T) {
 	assert.Equal(t, "postgres", cfg.DB.User)
 	assert.Equal(t, "password", cfg.DB.Password)
 	assert.Equal(t, "words_service", cfg.DB.Name)
+	assert.Equal(t, ":8080", cfg.Http.ListenAddr)
+	assert.Equal(t, 60*time.Second, cfg.Http.IdleTimeout)
+	assert.Equal(t, 30*time.Second, cfg.Http.ReadTimeout)
+	assert.Equal(t, 30*time.Second, cfg.Http.WriteTimeout)
+	assert.Equal(t, 10*time.Second, cfg.Http.ShutdownTimeout)
 }

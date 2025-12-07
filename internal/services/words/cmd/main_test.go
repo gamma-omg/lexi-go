@@ -125,6 +125,42 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestRun_Cancel(t *testing.T) {
+	dbCfg := dbConfig{
+		user:     "testuser",
+		password: "testpass",
+		dbName:   "testdb",
+	}
+	db, teardown := setupDatabase(t, dbCfg)
+	defer teardown()
+
+	jwtSecret := "test-secret"
+	t.Setenv("AUTH_SECRET", jwtSecret)
+	t.Setenv("DB_HOST", db.host)
+	t.Setenv("DB_PORT", db.port)
+	t.Setenv("DB_USER", dbCfg.user)
+	t.Setenv("DB_PASSWORD", dbCfg.password)
+	t.Setenv("DB_NAME", dbCfg.dbName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- run(ctx)
+	}()
+
+	time.Sleep(2 * time.Second)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("service did not shut down in time after context cancellation")
+	}
+}
+
 func waitFor(ctx context.Context, upd time.Duration, check func() bool) bool {
 	ticker := time.NewTicker(upd)
 	defer ticker.Stop()
