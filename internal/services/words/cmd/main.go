@@ -12,6 +12,7 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/pkg/middleware"
 	"github.com/gamma-omg/lexi-go/internal/pkg/router"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/config"
+	"github.com/gamma-omg/lexi-go/internal/services/words/internal/image"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/rest"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/service"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
@@ -33,6 +34,11 @@ func run(ctx context.Context) error {
 	}
 
 	store := store.NewPostgresStore(db)
+	imgStore := image.NewRemoteStore(
+		cfg.Image.Endpint,
+		cfg.Image.FieldName,
+		cfg.Image.FileName,
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +55,7 @@ func run(ctx context.Context) error {
 		TagsCacheSize: cfg.TagsMaxKeys,
 		TagsMaxCost:   cfg.TagsMaxCost,
 	})
-	api := rest.NewAPI(srv)
+	api := rest.NewAPI(srv, imgStore)
 	api.Register(r)
 
 	mux.Handle("/api/v1/", r)

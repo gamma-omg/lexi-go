@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"testing"
 
@@ -648,7 +649,7 @@ func TestCreateDefinition_Exists(t *testing.T) {
 func TestAttachImage(t *testing.T) {
 	req := AttachImageRequest{
 		DefID:    123,
-		ImageURL: "http://example.com/image.jpg",
+		ImageURL: &url.URL{Scheme: "http", Host: "example.com", Path: "/image.jpg"},
 		Source:   model.SrcUser,
 	}
 
@@ -665,9 +666,10 @@ func TestAttachImage(t *testing.T) {
 		TagsMaxCost:   100,
 	})
 
-	imageID, err := service.AttachImage(context.Background(), req)
+	resp, err := service.AttachImage(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), imageID)
+	assert.Equal(t, int64(1), resp.ImageID)
+	assert.Equal(t, url.URL{Scheme: "http", Host: "example.com", Path: "/image.jpg"}, *resp.ImageURL)
 
 	require.Len(t, attachedImages, 1)
 	require.Contains(t, attachedImages, store.AttachImageRequest{
@@ -680,7 +682,7 @@ func TestAttachImage(t *testing.T) {
 func TestAttachImage_DefinitionNotFound(t *testing.T) {
 	req := AttachImageRequest{
 		DefID:    123,
-		ImageURL: "http://example.com/image.jpg",
+		ImageURL: &url.URL{Scheme: "http", Host: "example.com", Path: "/image.jpg"},
 		Source:   model.SrcUser,
 	}
 
@@ -707,7 +709,7 @@ func TestAttachImage_DefinitionNotFound(t *testing.T) {
 func TestAttachImage_Exists(t *testing.T) {
 	req := AttachImageRequest{
 		DefID:    123,
-		ImageURL: "http://example.com/image.jpg",
+		ImageURL: &url.URL{Scheme: "http", Host: "example.com", Path: "/image.jpg"},
 		Source:   model.SrcUser,
 	}
 

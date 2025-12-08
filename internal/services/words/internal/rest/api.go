@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/middleware"
@@ -26,15 +29,23 @@ type wordsService interface {
 	GetUserPicks(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
 	RemoveTags(ctx context.Context, r service.RemoveTagsRequest) error
 	CreateDefinition(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
-	AttachImage(ctx context.Context, r service.AttachImageRequest) (int64, error)
+	AttachImage(ctx context.Context, r service.AttachImageRequest) (service.AttachImageResponse, error)
+}
+
+type imageStore interface {
+	SaveImage(ctx context.Context, img io.Reader) (*url.URL, error)
 }
 
 type API struct {
-	srv wordsService
+	srv      wordsService
+	imgStore imageStore
 }
 
-func NewAPI(srv wordsService) *API {
-	return &API{srv: srv}
+func NewAPI(srv wordsService, imgStore imageStore) *API {
+	return &API{
+		srv:      srv,
+		imgStore: imgStore,
+	}
 }
 
 func (api *API) Register(m mux) {
@@ -45,7 +56,7 @@ func (api *API) Register(m mux) {
 	m.HandleFunc("GET /picks", api.handleGetPicks)
 	m.HandleFunc("DELETE /tags", api.handleDeleteTag)
 	m.HandleFunc("PUT /definitions", api.handleCreateDefinition)
-	m.HandleFunc("PUT /images", api.handleAttachImage)
+	m.HandleFunc("PUT /images/{def_id}/{source}", api.handleAttachImage)
 }
 
 type addWordRequest struct {
@@ -260,34 +271,46 @@ func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 	writeResponse(w, http.StatusCreated, createDefinitionResponse{ID: defID})
 }
 
-type attachImageRequest struct {
-	DefID    int64  `json:"def_id"`
-	ImageURL string `json:"image_url"`
-	Source   string `json:"source"`
-}
-
 type attachImageResponse struct {
-	ImageID int64 `json:"image_id"`
+	ImageID  int64    `json:"image_id"`
+	ImageURL *url.URL `json:"image_url"`
 }
 
 func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[attachImageRequest](r)
+	file, _, err := r.FormFile("image")
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid image file"))
+		return
+	}
+	defer file.Close()
+
+	imgUrl, err := api.imgStore.SaveImage(r.Context(), file)
+	if err != nil {
+		handleErr(w, r, fmt.Errorf("save image: %w", err))
 		return
 	}
 
-	imageID, err := api.srv.AttachImage(r.Context(), service.AttachImageRequest{
-		DefID:    req.DefID,
-		ImageURL: req.ImageURL,
-		Source:   model.DataSource(req.Source),
+	source := r.PathValue("source")
+	defID, err := idFromRequest(r, "def_id")
+	if err != nil {
+		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid def_id parameter"))
+		return
+	}
+
+	resp, err := api.srv.AttachImage(r.Context(), service.AttachImageRequest{
+		DefID:    defID,
+		ImageURL: imgUrl,
+		Source:   model.DataSource(source),
 	})
 	if err != nil {
 		handleErr(w, r, err)
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, attachImageResponse{ImageID: imageID})
+	writeResponse(w, http.StatusCreated, attachImageResponse{
+		ImageID:  resp.ImageID,
+		ImageURL: resp.ImageURL,
+	})
 }
 
 func idFromRequest(r *http.Request, param string) (int64, error) {

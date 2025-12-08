@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -23,7 +26,7 @@ type mockWordsService struct {
 	GetUserPicksFunc     func(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error)
 	RemoveTagsFunc       func(ctx context.Context, r service.RemoveTagsRequest) error
 	CreateDefinitionFunc func(ctx context.Context, r service.CreateDefinitionRequest) (int64, error)
-	AttachImageFunc      func(ctx context.Context, r service.AttachImageRequest) (int64, error)
+	AttachImageFunc      func(ctx context.Context, r service.AttachImageRequest) (service.AttachImageResponse, error)
 }
 
 func (m *mockWordsService) AddWord(ctx context.Context, r service.AddWordRequest) (int64, error) {
@@ -54,8 +57,16 @@ func (m *mockWordsService) CreateDefinition(ctx context.Context, r service.Creat
 	return m.CreateDefinitionFunc(ctx, r)
 }
 
-func (m *mockWordsService) AttachImage(ctx context.Context, r service.AttachImageRequest) (int64, error) {
+func (m *mockWordsService) AttachImage(ctx context.Context, r service.AttachImageRequest) (service.AttachImageResponse, error) {
 	return m.AttachImageFunc(ctx, r)
+}
+
+type mockImageStore struct {
+	SaveImageFunc func(ctx context.Context, imgReader io.Reader) (*url.URL, error)
+}
+
+func (m *mockImageStore) SaveImage(ctx context.Context, img io.Reader) (*url.URL, error) {
+	return m.SaveImageFunc(ctx, img)
 }
 
 func sendRequest(t *testing.T, mux *http.ServeMux, method, path string, body any) *httptest.ResponseRecorder {
@@ -68,6 +79,37 @@ func sendRequest(t *testing.T, mux *http.ServeMux, method, path string, body any
 
 	req, err := http.NewRequest(method, path, strings.NewReader(bodyRW.String()))
 	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	return rec
+}
+
+type file struct {
+	Name      string
+	FieldName string
+	Content   io.Reader
+}
+
+func sendFile(t *testing.T, mux *http.ServeMux, method, path string, file file) *httptest.ResponseRecorder {
+	t.Helper()
+
+	var bodyRW strings.Builder
+	writer := multipart.NewWriter(&bodyRW)
+
+	part, err := writer.CreateFormFile(file.FieldName, file.Name)
+	require.NoError(t, err)
+
+	_, err = io.Copy(part, file.Content)
+	require.NoError(t, err)
+
+	err = writer.Close()
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(method, path, strings.NewReader(bodyRW.String()))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -366,19 +408,25 @@ func TestPUTDefinition_BadRequest(t *testing.T) {
 }
 
 func TestPUTImage(t *testing.T) {
-	req := attachImageRequest{
-		DefID:    123,
-		ImageURL: "http://example.com/image.jpg",
-		Source:   "test-source",
-	}
+	var attachedImages []service.AttachImageResponse
 	api := &API{
+		imgStore: &mockImageStore{
+			SaveImageFunc: func(ctx context.Context, imgReader io.Reader) (*url.URL, error) {
+				return &url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, nil
+			},
+		},
 		srv: &mockWordsService{
-			AttachImageFunc: func(ctx context.Context, r service.AttachImageRequest) (int64, error) {
-				if r.DefID == req.DefID && r.ImageURL == req.ImageURL && string(r.Source) == req.Source {
-					return 42, nil
+			AttachImageFunc: func(ctx context.Context, r service.AttachImageRequest) (service.AttachImageResponse, error) {
+				if r.DefID != 123 || r.Source != model.SrcUser {
+					return service.AttachImageResponse{}, errors.New("unexpected request")
 				}
 
-				return 0, errors.New("unexpected request")
+				resp := service.AttachImageResponse{
+					ImageID:  42,
+					ImageURL: r.ImageURL,
+				}
+				attachedImages = append(attachedImages, resp)
+				return resp, nil
 			},
 		},
 	}
@@ -386,11 +434,16 @@ func TestPUTImage(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/images", req)
+	rec := sendFile(t, mux, "PUT", "/images/123/user", file{
+		Name:      "image.jpg",
+		FieldName: "image",
+		Content:   strings.NewReader("fake image content"),
+	})
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	resp := parseResponse[attachImageResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ImageID)
+	assert.Equal(t, url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, *resp.ImageURL)
 }
 
 func TestPUTImage_BadRequest(t *testing.T) {
@@ -401,6 +454,6 @@ func TestPUTImage_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/images", "invalid json")
+	rec := sendRequest(t, mux, "PUT", "/images/invalid-id/user", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

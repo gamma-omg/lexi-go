@@ -22,6 +22,9 @@ func TestFromEnv(t *testing.T) {
 	t.Setenv("DB_USER", "testuser")
 	t.Setenv("DB_PASSWORD", "testpass")
 	t.Setenv("DB_NAME", "testdb")
+	t.Setenv("IMAGE_ENDPOINT", "http://example.com:8888/upload")
+	t.Setenv("IMAGE_FIELD_NAME", "img")
+	t.Setenv("IMAGE_FILE_NAME", "img.jpg")
 
 	cfg := config.FromEnv()
 
@@ -38,6 +41,9 @@ func TestFromEnv(t *testing.T) {
 	assert.Equal(t, 40*time.Second, cfg.Http.ReadTimeout)
 	assert.Equal(t, 50*time.Second, cfg.Http.WriteTimeout)
 	assert.Equal(t, 15*time.Second, cfg.Http.ShutdownTimeout)
+	assert.Equal(t, "http://example.com:8888/upload", cfg.Image.Endpint)
+	assert.Equal(t, "img", cfg.Image.FieldName)
+	assert.Equal(t, "img.jpg", cfg.Image.FileName)
 }
 
 func TestFromEnv_Defaults(t *testing.T) {
@@ -56,4 +62,7 @@ func TestFromEnv_Defaults(t *testing.T) {
 	assert.Equal(t, 30*time.Second, cfg.Http.ReadTimeout)
 	assert.Equal(t, 30*time.Second, cfg.Http.WriteTimeout)
 	assert.Equal(t, 10*time.Second, cfg.Http.ShutdownTimeout)
+	assert.Equal(t, "http://localhost:9999/", cfg.Image.Endpint)
+	assert.Equal(t, "image", cfg.Image.FieldName)
+	assert.Equal(t, "image.jpg", cfg.Image.FileName)
 }

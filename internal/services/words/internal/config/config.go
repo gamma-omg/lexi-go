@@ -12,6 +12,7 @@ type Config struct {
 	TagsMaxCost int64
 	DB          dbConfig
 	Http        httpConfig
+	Image       imageConfig
 }
 
 type dbConfig struct {
@@ -28,6 +29,12 @@ type httpConfig struct {
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
+}
+
+type imageConfig struct {
+	Endpint   string
+	FieldName string
+	FileName  string
 }
 
 func FromEnv() Config {
@@ -48,6 +55,11 @@ func FromEnv() Config {
 			ReadTimeout:     getEnvDuration("HTTP_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout:    getEnvDuration("HTTP_WRITE_TIMEOUT", 30*time.Second),
 			ShutdownTimeout: getEnvDuration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
+		},
+		Image: imageConfig{
+			Endpint:   getEnvString("IMAGE_ENDPOINT", "http://localhost:9999/"),
+			FieldName: getEnvString("IMAGE_FIELD_NAME", "image"),
+			FileName:  getEnvString("IMAGE_FILE_NAME", "image.jpg"),
 		},
 	}
 }
