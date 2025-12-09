@@ -22,7 +22,7 @@ func TestFromEnv(t *testing.T) {
 	t.Setenv("DB_USER", "testuser")
 	t.Setenv("DB_PASSWORD", "testpass")
 	t.Setenv("DB_NAME", "testdb")
-	t.Setenv("IMAGE_ENDPOINT", "http://example.com:8888/upload")
+	t.Setenv("IMAGE_SERVICE", "http://example.com:8888/upload")
 	t.Setenv("IMAGE_FIELD_NAME", "img")
 	t.Setenv("IMAGE_FILE_NAME", "img.jpg")
 

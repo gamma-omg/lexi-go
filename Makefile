@@ -24,9 +24,11 @@ proto:
 image: proto
 	make -C internal/services/gateway image TAG=${TAG}
 	make -C internal/services/words image TAG=${TAG}
+	make -C internal/services/image image TAG=${TAG}
 
 .PHONY: deploy
 deploy:
 	kubectl apply -f deploy/lexigo/common -n lexigo
 	make -C internal/services/gateway deploy TAG=${TAG}
 	make -C internal/services/words deploy TAG=${TAG}
+	make -C internal/services/image deploy TAG=${TAG}

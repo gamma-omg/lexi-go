@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lexigo-image
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lexigo-image
+  template:
+    metadata:
+      labels:
+        app: lexigo-image
+    spec:
+      containers:
+        - name: image
+          image: lexi-go/image:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: lexigo-image-config
+          env:
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-secret
+                  key: AUTH_SECRET
