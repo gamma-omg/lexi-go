@@ -1,4 +1,4 @@
-package service
+package serr
 
 import (
 	"fmt"

@@ -18,14 +18,6 @@ func newEmptyTagSet() tagSet {
 	return tagSet{ids: make(model.TagIDMap)}
 }
 
-func newTagSet(tags []string, ids []int64) tagSet {
-	result := make(map[string]int64, len(tags))
-	for i, tag := range tags {
-		result[tag] = ids[i]
-	}
-	return tagSet{ids: result}
-}
-
 func (t *tagSet) IDs() []int64 {
 	result := make([]int64, 0, len(t.ids))
 	for _, id := range t.ids {

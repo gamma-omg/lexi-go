@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -85,7 +86,7 @@ func TestRun(t *testing.T) {
 	}()
 
 	go func() {
-		ready <- waitFor(ctx, 500*time.Millisecond, func() bool {
+		ready <- testutil.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
 			resp, err := http.Get("http://localhost:8080/readyz")
 			if err != nil {
 				return false
@@ -97,7 +98,7 @@ func TestRun(t *testing.T) {
 	}()
 
 	go func() {
-		healthy <- waitFor(ctx, 500*time.Millisecond, func() bool {
+		healthy <- testutil.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
 			resp, err := http.Get("http://localhost:8080/healthz")
 			if err != nil {
 				return false
@@ -158,21 +159,5 @@ func TestRun_Cancel(t *testing.T) {
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("service did not shut down in time after context cancellation")
-	}
-}
-
-func waitFor(ctx context.Context, upd time.Duration, check func() bool) bool {
-	ticker := time.NewTicker(upd)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-ticker.C:
-			if check() {
-				return true
-			}
-		}
 	}
 }

@@ -47,9 +47,10 @@ func TestFromEnv(t *testing.T) {
 }
 
 func TestFromEnv_Defaults(t *testing.T) {
+	t.Setenv("AUTH_SECRET", "test")
 	cfg := config.FromEnv()
 
-	assert.Equal(t, "", cfg.AuthSecret)
+	assert.Equal(t, "test", cfg.AuthSecret)
 	assert.Equal(t, int64(10000), cfg.TagsMaxKeys)
 	assert.Equal(t, int64(10000), cfg.TagsMaxCost)
 	assert.Equal(t, "localhost", cfg.DB.Host)

@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/url"
 	"slices"
 	"testing"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
 	"github.com/stretchr/testify/assert"
@@ -126,7 +126,7 @@ func TestAddWord_Exists(t *testing.T) {
 	_, err := service.AddWord(context.Background(), req)
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
+	se, ok := err.(*serr.ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusConflict, se.StatusCode)
 	require.Equal(t, req.Lemma, se.Env["lemma"])
@@ -174,7 +174,7 @@ func TestDeleteWord_NotFound(t *testing.T) {
 	err := service.DeleteWord(context.Background(), wordID)
 	require.Error(t, err)
 
-	se, ok := err.(*ServiceError)
+	se, ok := err.(*serr.ServiceError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "12345", se.Env["word_id"])
@@ -251,8 +251,8 @@ func TestPickWord_Exists(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	require.Equal(t, http.StatusConflict, se.StatusCode)
 	require.Equal(t, "user-123", se.Env["user_id"])
 	require.Equal(t, "456", se.Env["word_id"])
@@ -399,8 +399,8 @@ func TestGetUserPicks_InvalidPaginationCursor(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	assert.Equal(t, http.StatusBadRequest, se.StatusCode)
 	assert.Equal(t, "invalid-cursor", se.Env["cursor"])
 }
@@ -420,8 +420,8 @@ func TestUnpickWord_NotFound(t *testing.T) {
 	err := srv.UnpickWord(context.Background(), 456)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 }
@@ -489,8 +489,8 @@ func TestAddTag_PickNotFound(t *testing.T) {
 	err := srv.AddTags(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 }
@@ -552,8 +552,8 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 	err := srv.RemoveTags(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	require.Equal(t, http.StatusNotFound, se.StatusCode)
 	require.Equal(t, "456", se.Env["pick_id"])
 }
@@ -612,8 +612,8 @@ func TestCreateDefinition_WordNotFound(t *testing.T) {
 	_, err := service.CreateDefinition(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	assert.Equal(t, http.StatusNotFound, se.StatusCode)
 	assert.Equal(t, "123", se.Env["word_id"])
 }
@@ -639,8 +639,8 @@ func TestCreateDefinition_Exists(t *testing.T) {
 	_, err := service.CreateDefinition(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	assert.Equal(t, http.StatusConflict, se.StatusCode)
 	assert.Equal(t, "123", se.Env["word_id"])
 	assert.Equal(t, "A sample definition.", se.Env["text"])
@@ -700,8 +700,8 @@ func TestAttachImage_DefinitionNotFound(t *testing.T) {
 	_, err := service.AttachImage(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	assert.Equal(t, http.StatusNotFound, se.StatusCode)
 	assert.Equal(t, "123", se.Env["def_id"])
 }
@@ -727,8 +727,8 @@ func TestAttachImage_Exists(t *testing.T) {
 	_, err := service.AttachImage(context.Background(), req)
 	require.Error(t, err)
 
-	var se *ServiceError
-	require.True(t, errors.As(err, &se))
+	var se *serr.ServiceError
+	require.ErrorAs(t, err, &se)
 	assert.Equal(t, http.StatusConflict, se.StatusCode)
 	assert.Equal(t, "123", se.Env["def_id"])
 	assert.Equal(t, "http://example.com/image.jpg", se.Env["image_url"])

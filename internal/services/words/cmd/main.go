@@ -96,7 +96,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil {
-		slog.Error("service exited with error", "error", err)
+		slog.Error("words service exited with error", "error", err)
 		os.Exit(1)
 	}
 }

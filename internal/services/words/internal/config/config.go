@@ -1,9 +1,9 @@
 package config
 
 import (
-	"fmt"
-	"os"
 	"time"
+
+	"github.com/gamma-omg/lexi-go/internal/pkg/env"
 )
 
 type Config struct {
@@ -39,55 +39,27 @@ type imageConfig struct {
 
 func FromEnv() Config {
 	return Config{
-		AuthSecret:  os.Getenv("AUTH_SECRET"),
-		TagsMaxKeys: getEnvInt64("TAGS_CACHE_KEYS", 10000),
-		TagsMaxCost: getEnvInt64("TAGS_CACHE_COST", 10000),
+		AuthSecret:  env.RequireString("AUTH_SECRET"),
+		TagsMaxKeys: env.Int64("TAGS_CACHE_KEYS", 10000),
+		TagsMaxCost: env.Int64("TAGS_CACHE_COST", 10000),
 		DB: dbConfig{
-			Host:     getEnvString("DB_HOST", "localhost"),
-			Port:     getEnvString("DB_PORT", "5432"),
-			User:     getEnvString("DB_USER", "postgres"),
-			Password: getEnvString("DB_PASSWORD", "password"),
-			Name:     getEnvString("DB_NAME", "words_service"),
+			Host:     env.String("DB_HOST", "localhost"),
+			Port:     env.String("DB_PORT", "5432"),
+			User:     env.String("DB_USER", "postgres"),
+			Password: env.String("DB_PASSWORD", "password"),
+			Name:     env.String("DB_NAME", "words_service"),
 		},
 		Http: httpConfig{
-			ListenAddr:      getEnvString("HTTP_LISTEN_ADDR", ":8080"),
-			IdleTimeout:     getEnvDuration("HTTP_IDLE_TIMEOUT", 60*time.Second),
-			ReadTimeout:     getEnvDuration("HTTP_READ_TIMEOUT", 30*time.Second),
-			WriteTimeout:    getEnvDuration("HTTP_WRITE_TIMEOUT", 30*time.Second),
-			ShutdownTimeout: getEnvDuration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
+			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ":8080"),
+			IdleTimeout:     env.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
+			ReadTimeout:     env.Duration("HTTP_READ_TIMEOUT", 30*time.Second),
+			WriteTimeout:    env.Duration("HTTP_WRITE_TIMEOUT", 30*time.Second),
+			ShutdownTimeout: env.Duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
 		},
 		Image: imageConfig{
-			Endpint:   getEnvString("IMAGE_ENDPOINT", "http://localhost:9999/"),
-			FieldName: getEnvString("IMAGE_FIELD_NAME", "image"),
-			FileName:  getEnvString("IMAGE_FILE_NAME", "image.jpg"),
+			Endpint:   env.String("IMAGE_ENDPOINT", "http://localhost:9999/"),
+			FieldName: env.String("IMAGE_FIELD_NAME", "image"),
+			FileName:  env.String("IMAGE_FILE_NAME", "image.jpg"),
 		},
 	}
-}
-
-func getEnvString(key, defaultVal string) string {
-	if val, exists := os.LookupEnv(key); exists {
-		return val
-	}
-	return defaultVal
-}
-
-func getEnvInt64(key string, defaultVal int64) int64 {
-	if valStr, exists := os.LookupEnv(key); exists {
-		var val int64
-		_, err := fmt.Sscanf(valStr, "%d", &val)
-		if err == nil {
-			return val
-		}
-	}
-	return defaultVal
-}
-
-func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
-	if valStr, exists := os.LookupEnv(key); exists {
-		val, err := time.ParseDuration(valStr)
-		if err == nil {
-			return val
-		}
-	}
-	return defaultVal
 }

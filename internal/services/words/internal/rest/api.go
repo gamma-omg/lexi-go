@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/middleware"
+	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/fn"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/service"
@@ -72,7 +73,7 @@ type addWordResponse struct {
 func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[addWordRequest](r)
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -119,7 +120,7 @@ type pickWordResponse struct {
 func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[pickWordRequest](r)
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -179,7 +180,7 @@ type userPickResponse struct {
 func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[getPicksRequest](r)
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -223,7 +224,7 @@ type deleteTagRequest struct {
 func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[deleteTagRequest](r)
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -253,7 +254,7 @@ type createDefinitionResponse struct {
 func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[createDefinitionRequest](r)
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -279,7 +280,7 @@ type attachImageResponse struct {
 func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("image")
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid image file"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid image file"))
 		return
 	}
 	defer file.Close()
@@ -293,7 +294,7 @@ func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
 	source := r.PathValue("source")
 	defID, err := idFromRequest(r, "def_id")
 	if err != nil {
-		handleErr(w, r, service.NewServiceError(err, http.StatusBadRequest, "invalid def_id parameter"))
+		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid def_id parameter"))
 		return
 	}
 
@@ -317,7 +318,7 @@ func idFromRequest(r *http.Request, param string) (int64, error) {
 	idStr := r.PathValue(param)
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		return 0, service.NewServiceError(err, http.StatusBadRequest, "invalid id parameter")
+		return 0, serr.NewServiceError(err, http.StatusBadRequest, "invalid id parameter")
 	}
 
 	return int64(id), nil
@@ -345,7 +346,7 @@ func handleErr(w http.ResponseWriter, r *http.Request, err error) {
 		"remote_addr", r.RemoteAddr,
 	)
 
-	var se *service.ServiceError
+	var se *serr.ServiceError
 	if errors.As(err, &se) {
 		http.Error(w, se.Msg, se.StatusCode)
 		return

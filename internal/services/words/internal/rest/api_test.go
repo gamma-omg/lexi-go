@@ -2,20 +2,17 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/service"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockWordsService struct {
@@ -69,65 +66,6 @@ func (m *mockImageStore) SaveImage(ctx context.Context, img io.Reader) (*url.URL
 	return m.SaveImageFunc(ctx, img)
 }
 
-func sendRequest(t *testing.T, mux *http.ServeMux, method, path string, body any) *httptest.ResponseRecorder {
-	t.Helper()
-
-	var bodyRW strings.Builder
-	enc := json.NewEncoder(&bodyRW)
-	err := enc.Encode(body)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest(method, path, strings.NewReader(bodyRW.String()))
-	require.NoError(t, err)
-
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	return rec
-}
-
-type file struct {
-	Name      string
-	FieldName string
-	Content   io.Reader
-}
-
-func sendFile(t *testing.T, mux *http.ServeMux, method, path string, file file) *httptest.ResponseRecorder {
-	t.Helper()
-
-	var bodyRW strings.Builder
-	writer := multipart.NewWriter(&bodyRW)
-
-	part, err := writer.CreateFormFile(file.FieldName, file.Name)
-	require.NoError(t, err)
-
-	_, err = io.Copy(part, file.Content)
-	require.NoError(t, err)
-
-	err = writer.Close()
-	require.NoError(t, err)
-
-	req, err := http.NewRequest(method, path, strings.NewReader(bodyRW.String()))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	return rec
-}
-
-func parseResponse[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
-	t.Helper()
-
-	dec := json.NewDecoder(rec.Body)
-	var resp T
-	err := dec.Decode(&resp)
-	require.NoError(t, err)
-
-	return resp
-}
-
 func TestPUTWord(t *testing.T) {
 	req := addWordRequest{
 		Lemma: "test",
@@ -149,10 +87,10 @@ func TestPUTWord(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/words", req)
+	rec := testutil.SendRequest(t, mux, "PUT", "/words", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := parseResponse[addWordResponse](t, rec)
+	resp := testutil.ParseResponse[addWordResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ID)
 }
 
@@ -164,7 +102,7 @@ func TestPUTWord_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/words", "invalid json")
+	rec := testutil.SendRequest(t, mux, "PUT", "/words", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -184,7 +122,7 @@ func TestDELETEWord(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/words/123", nil)
+	rec := testutil.SendRequest(t, mux, "DELETE", "/words/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -196,7 +134,7 @@ func TestDELETEWord_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/words/invalid-id", nil)
+	rec := testutil.SendRequest(t, mux, "DELETE", "/words/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -220,10 +158,10 @@ func TestPUTPick(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/picks", req)
+	rec := testutil.SendRequest(t, mux, "PUT", "/picks", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := parseResponse[pickWordResponse](t, rec)
+	resp := testutil.ParseResponse[pickWordResponse](t, rec)
 	assert.Equal(t, int64(42), resp.PickID)
 }
 
@@ -235,7 +173,7 @@ func TestPUTPicks_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/picks", "invalid json")
+	rec := testutil.SendRequest(t, mux, "PUT", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -255,7 +193,7 @@ func TestDELETEPick(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/picks/123", nil)
+	rec := testutil.SendRequest(t, mux, "DELETE", "/picks/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -267,7 +205,7 @@ func TestDELETEPick_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/picks/invalid-id", nil)
+	rec := testutil.SendRequest(t, mux, "DELETE", "/picks/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -303,10 +241,10 @@ func TestGETPicks(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "GET", "/picks", req)
+	rec := testutil.SendRequest(t, mux, "GET", "/picks", req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	resp := parseResponse[getPicksResponse](t, rec)
+	resp := testutil.ParseResponse[getPicksResponse](t, rec)
 	assert.Len(t, resp.Picks, 1)
 	assert.Equal(t, int64(1), resp.Picks[0].ID)
 	assert.Equal(t, "user-123", resp.Picks[0].UserID)
@@ -325,7 +263,7 @@ func TestGETPicks_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "GET", "/picks", "invalid json")
+	rec := testutil.SendRequest(t, mux, "GET", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -351,7 +289,7 @@ func TestDELETETag(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/tags", req)
+	rec := testutil.SendRequest(t, mux, "DELETE", "/tags", req)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -363,7 +301,7 @@ func TestDELETETag_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "DELETE", "/tags", "invalid json")
+	rec := testutil.SendRequest(t, mux, "DELETE", "/tags", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -388,10 +326,10 @@ func TestPUTDefinition(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/definitions", req)
+	rec := testutil.SendRequest(t, mux, "PUT", "/definitions", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := parseResponse[createDefinitionResponse](t, rec)
+	resp := testutil.ParseResponse[createDefinitionResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ID)
 }
 
@@ -403,7 +341,7 @@ func TestPUTDefinition_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/definitions", "invalid json")
+	rec := testutil.SendRequest(t, mux, "PUT", "/definitions", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -434,14 +372,14 @@ func TestPUTImage(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendFile(t, mux, "PUT", "/images/123/user", file{
+	rec := testutil.SendFile(t, mux, "PUT", "/images/123/user", testutil.TestFile{
 		Name:      "image.jpg",
 		FieldName: "image",
 		Content:   strings.NewReader("fake image content"),
 	})
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := parseResponse[attachImageResponse](t, rec)
+	resp := testutil.ParseResponse[attachImageResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ImageID)
 	assert.Equal(t, url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, *resp.ImageURL)
 }
@@ -454,6 +392,6 @@ func TestPUTImage_BadRequest(t *testing.T) {
 	mux := http.NewServeMux()
 	api.Register(mux)
 
-	rec := sendRequest(t, mux, "PUT", "/images/invalid-id/user", "invalid json")
+	rec := testutil.SendRequest(t, mux, "PUT", "/images/invalid-id/user", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

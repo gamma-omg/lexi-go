@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/fn"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/store"
@@ -48,7 +49,7 @@ func (s *WordsService) AddWord(ctx context.Context, r AddWordRequest) (id int64,
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
-			se := NewServiceError(err, http.StatusConflict, "word already exists")
+			se := serr.NewServiceError(err, http.StatusConflict, "word already exists")
 			se.Env["lemma"] = r.Lemma
 			se.Env["lang"] = string(r.Lang)
 			se.Env["class"] = string(r.Class)
@@ -65,7 +66,7 @@ func (s *WordsService) AddWord(ctx context.Context, r AddWordRequest) (id int64,
 func (s *WordsService) DeleteWord(ctx context.Context, id int64) error {
 	if err := s.store.DeleteWord(ctx, store.DeleteWordRequest{ID: id}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			se := NewServiceError(err, http.StatusNotFound, "word not found")
+			se := serr.NewServiceError(err, http.StatusNotFound, "word not found")
 			se.Env["word_id"] = fmt.Sprintf("%d", id)
 			return se
 		}
@@ -99,7 +100,7 @@ func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) (int64,
 		})
 		if err != nil {
 			if errors.Is(err, store.ErrExists) {
-				se := NewServiceError(err, http.StatusConflict, "user pick already exists")
+				se := serr.NewServiceError(err, http.StatusConflict, "user pick already exists")
 				se.Env["user_id"] = r.UserID
 				se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
 				se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
@@ -172,7 +173,7 @@ func (s *WordsService) GetUserPicks(ctx context.Context, r GetUserPicksRequest) 
 	if r.NextCursor != "" {
 		cursor, err = decodeCursor[store.GetUserPicksCursor](r.NextCursor)
 		if err != nil {
-			se := NewServiceError(err, http.StatusBadRequest, "invalid pagination cursor")
+			se := serr.NewServiceError(err, http.StatusBadRequest, "invalid pagination cursor")
 			se.Env["cursor"] = r.NextCursor
 			err = se
 			return
@@ -217,7 +218,7 @@ func (s *WordsService) GetUserPicks(ctx context.Context, r GetUserPicksRequest) 
 func (s *WordsService) UnpickWord(ctx context.Context, pickID int64) error {
 	if err := s.store.DeleteUserPick(ctx, store.DeleteUserPickRequest{PickID: pickID}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
+			se := serr.NewServiceError(err, http.StatusNotFound, "user pick was not found")
 			se.Env["pick_id"] = fmt.Sprintf("%d", pickID)
 			return se
 		}
@@ -248,7 +249,7 @@ func (s *WordsService) AddTags(ctx context.Context, r AddTagsRequest) error {
 		})
 		if err != nil {
 			if errors.Is(err, store.ErrNotFound) {
-				se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
+				se := serr.NewServiceError(err, http.StatusNotFound, "user pick was not found")
 				se.Env["pick_id"] = fmt.Sprintf("%d", r.PickID)
 				return se
 			}
@@ -288,7 +289,7 @@ func (s *WordsService) RemoveTags(ctx context.Context, r RemoveTagsRequest) erro
 		TagIDs: tags.IDs(),
 	}); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			se := NewServiceError(err, http.StatusNotFound, "user pick was not found")
+			se := serr.NewServiceError(err, http.StatusNotFound, "user pick was not found")
 			se.Env["pick_id"] = fmt.Sprintf("%d", r.PickID)
 			return se
 		}
@@ -316,13 +317,13 @@ func (s *WordsService) CreateDefinition(ctx context.Context, r CreateDefinitionR
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
-			se := NewServiceError(err, http.StatusConflict, "duplicate definition")
+			se := serr.NewServiceError(err, http.StatusConflict, "duplicate definition")
 			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
 			se.Env["text"] = r.Text
 			return 0, se
 		}
 		if errors.Is(err, store.ErrNotFound) {
-			se := NewServiceError(err, http.StatusNotFound, "word not found")
+			se := serr.NewServiceError(err, http.StatusNotFound, "word not found")
 			se.Env["word_id"] = fmt.Sprintf("%d", r.WordID)
 			return 0, se
 		}
@@ -353,13 +354,13 @@ func (s *WordsService) AttachImage(ctx context.Context, r AttachImageRequest) (A
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
-			se := NewServiceError(err, http.StatusConflict, "image already attached to definition")
+			se := serr.NewServiceError(err, http.StatusConflict, "image already attached to definition")
 			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
 			se.Env["image_url"] = r.ImageURL.String()
 			return AttachImageResponse{}, se
 		}
 		if errors.Is(err, store.ErrNotFound) {
-			se := NewServiceError(err, http.StatusNotFound, "definition not found")
+			se := serr.NewServiceError(err, http.StatusNotFound, "definition not found")
 			se.Env["def_id"] = fmt.Sprintf("%d", r.DefID)
 			return AttachImageResponse{}, se
 		}
