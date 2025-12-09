@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func TestPOSTUpload(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	resp := testutil.ParseResponse[uploadImageResponse](t, rec)
-	assert.Equal(t, resp.ImageURL, "https://images.example.com/image123.jpg")
+	assert.Equal(t, "https://images.example.com/image123.jpg", resp.ImageURL)
 }
 
 func TestGETImage(t *testing.T) {
@@ -60,6 +60,6 @@ func TestGETImage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
-	assert.Equal(t, rec.Code, http.StatusOK)
-	assert.Equal(t, rec.Body.String(), "test image content")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "test image content", rec.Body.String())
 }

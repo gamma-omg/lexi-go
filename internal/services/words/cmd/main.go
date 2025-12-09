@@ -35,7 +35,7 @@ func run(ctx context.Context) error {
 
 	store := store.NewPostgresStore(db)
 	imgStore := image.NewRemoteStore(
-		cfg.Image.Endpint,
+		cfg.Image.Endpoint,
 		cfg.Image.FieldName,
 		cfg.Image.FileName,
 	)

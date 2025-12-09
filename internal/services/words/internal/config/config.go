@@ -32,7 +32,7 @@ type httpConfig struct {
 }
 
 type imageConfig struct {
-	Endpint   string
+	Endpoint  string
 	FieldName string
 	FileName  string
 }
@@ -57,7 +57,7 @@ func FromEnv() Config {
 			ShutdownTimeout: env.Duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
 		},
 		Image: imageConfig{
-			Endpint:   env.String("IMAGE_ENDPOINT", "http://localhost:9999/"),
+			Endpoint:  env.String("IMAGE_ENDPOINT", "http://localhost:9999/"),
 			FieldName: env.String("IMAGE_FIELD_NAME", "image"),
 			FileName:  env.String("IMAGE_FILE_NAME", "image.jpg"),
 		},

@@ -59,7 +59,7 @@ func TestUpload_InvalidImage(t *testing.T) {
 	var se *serr.ServiceError
 	require.ErrorAs(t, err, &se)
 	assert.Nil(t, imgURL)
-	assert.Equal(t, se.StatusCode, http.StatusRequestEntityTooLarge)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, se.StatusCode)
 }
 
 func TestUpload_TooLarge(t *testing.T) {
@@ -87,5 +87,5 @@ func TestUpload_TooLarge(t *testing.T) {
 	var se *serr.ServiceError
 	require.ErrorAs(t, err, &se)
 	assert.Nil(t, imgURL)
-	assert.Equal(t, se.StatusCode, http.StatusRequestEntityTooLarge)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, se.StatusCode)
 }

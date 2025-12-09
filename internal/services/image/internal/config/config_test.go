@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gamma-omg/lexi-go/internal/services/image/internal/config"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFromEnv(t *testing.T) {
@@ -23,32 +23,32 @@ func TestFromEnv(t *testing.T) {
 
 	cfg := config.FromEnv()
 
-	assert.Equal(t, cfg.AuthSecret, "supersecret")
-	assert.Equal(t, cfg.ImageStore.MaxSize, int64(12345))
-	assert.Equal(t, cfg.ImageStore.MaxWidth, 2560)
-	assert.Equal(t, cfg.ImageStore.MaxHeight, 1440)
-	assert.Equal(t, cfg.ImageStore.Root, "./my_images")
-	assert.Equal(t, cfg.Http.ListenAddr, ":9090")
-	assert.Equal(t, cfg.Http.IdleTimeout, 70*time.Second)
-	assert.Equal(t, cfg.Http.ReadTimeout, 40*time.Second)
-	assert.Equal(t, cfg.Http.WriteTimeout, 50*time.Second)
-	assert.Equal(t, cfg.Http.ShutdownTimeout, 15*time.Second)
-	assert.Equal(t, cfg.ImageStore.ServeRoot.String(), "http://cdn.example.com/images/")
+	assert.Equal(t, "supersecret", cfg.AuthSecret)
+	assert.Equal(t, int64(12345), cfg.ImageStore.MaxSize)
+	assert.Equal(t, 2560, cfg.ImageStore.MaxWidth)
+	assert.Equal(t, 1440, cfg.ImageStore.MaxHeight)
+	assert.Equal(t, "./my_images", cfg.ImageStore.Root)
+	assert.Equal(t, ":9090", cfg.Http.ListenAddr)
+	assert.Equal(t, 70*time.Second, cfg.Http.IdleTimeout)
+	assert.Equal(t, 40*time.Second, cfg.Http.ReadTimeout)
+	assert.Equal(t, 50*time.Second, cfg.Http.WriteTimeout)
+	assert.Equal(t, 15*time.Second, cfg.Http.ShutdownTimeout)
+	assert.Equal(t, "http://cdn.example.com/images/", cfg.ImageStore.ServeRoot.String())
 }
 
 func TestFromEnv_Defaults(t *testing.T) {
 	t.Setenv("AUTH_SECRET", "test")
 	cfg := config.FromEnv()
 
-	assert.Equal(t, cfg.AuthSecret, "test")
-	assert.Equal(t, cfg.ImageStore.MaxSize, int64(5*1024*1024))
-	assert.Equal(t, cfg.ImageStore.MaxWidth, 1920)
-	assert.Equal(t, cfg.ImageStore.MaxHeight, 1080)
-	assert.Equal(t, cfg.Http.ListenAddr, ":8080")
-	assert.Equal(t, cfg.Http.IdleTimeout, 60*time.Second)
-	assert.Equal(t, cfg.Http.ReadTimeout, 30*time.Second)
-	assert.Equal(t, cfg.Http.WriteTimeout, 30*time.Second)
-	assert.Equal(t, cfg.Http.ShutdownTimeout, 10*time.Second)
-	assert.Equal(t, cfg.ImageStore.Root, "./images")
-	assert.Equal(t, cfg.ImageStore.ServeRoot.String(), "http://localhost:8080/images/")
+	assert.Equal(t, "test", cfg.AuthSecret)
+	assert.Equal(t, int64(5*1024*1024), cfg.ImageStore.MaxSize)
+	assert.Equal(t, 1920, cfg.ImageStore.MaxWidth)
+	assert.Equal(t, 1080, cfg.ImageStore.MaxHeight)
+	assert.Equal(t, ":8080", cfg.Http.ListenAddr)
+	assert.Equal(t, 60*time.Second, cfg.Http.IdleTimeout)
+	assert.Equal(t, 30*time.Second, cfg.Http.ReadTimeout)
+	assert.Equal(t, 30*time.Second, cfg.Http.WriteTimeout)
+	assert.Equal(t, 10*time.Second, cfg.Http.ShutdownTimeout)
+	assert.Equal(t, "./images", cfg.ImageStore.Root)
+	assert.Equal(t, "http://localhost:8080/images/", cfg.ImageStore.ServeRoot.String())
 }
