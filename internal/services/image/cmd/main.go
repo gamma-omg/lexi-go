@@ -26,17 +26,17 @@ func run(ctx context.Context) error {
 		MaxHeight: cfg.ImageStore.MaxHeight,
 	})
 
-	mux := &http.ServeMux{}
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	r := router.New()
+	r.Use(middleware.Recover(), middleware.Log())
+	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	r := router.New()
-	r.Use(middleware.Auth(cfg.AuthSecret))
-	mux.Handle("/", r)
+	auth := r.SubRouter("/api/v1/")
+	auth.Use(middleware.Auth(cfg.AuthSecret))
 
 	api := rest.NewAPI(srv, cfg.ImageStore.MaxSize, cfg.ImageStore.Root)
 	r.Handle("/", api)
@@ -46,7 +46,7 @@ func run(ctx context.Context) error {
 		IdleTimeout:  cfg.Http.IdleTimeout,
 		ReadTimeout:  cfg.Http.ReadTimeout,
 		WriteTimeout: cfg.Http.WriteTimeout,
-		Handler:      mux,
+		Handler:      r,
 	}
 
 	errCh := make(chan error, 1)

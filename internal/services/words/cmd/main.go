@@ -40,31 +40,34 @@ func run(ctx context.Context) error {
 		cfg.Image.FileName,
 	)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	r := router.New()
+	r.Use(
+		middleware.Recover(),
+		middleware.Log(),
+	)
+	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	r := router.New()
-	r.Use(middleware.Auth(cfg.AuthSecret))
+	auth := r.SubRouter("/api/v1/")
+	auth.Use(middleware.Auth(cfg.AuthSecret))
 
 	srv := service.NewWordsService(store, service.WordsServiceConfig{
 		TagsCacheSize: cfg.TagsMaxKeys,
 		TagsMaxCost:   cfg.TagsMaxCost,
 	})
 	api := rest.NewAPI(srv, imgStore)
-	r.Handle("/", api)
+	auth.Handle("/", api)
 
-	mux.Handle("/api/v1/", r)
 	server := &http.Server{
 		Addr:         cfg.Http.ListenAddr,
 		IdleTimeout:  cfg.Http.IdleTimeout,
 		ReadTimeout:  cfg.Http.ReadTimeout,
 		WriteTimeout: cfg.Http.WriteTimeout,
-		Handler:      mux,
+		Handler:      r,
 	}
 
 	errCh := make(chan error, 1)
