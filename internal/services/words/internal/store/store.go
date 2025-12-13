@@ -18,5 +18,5 @@ type DataStore interface {
 	RemoveTags(ctx context.Context, r RemoveTagsRequest) error
 	CreateDefinition(ctx context.Context, r CreateDefinitionRequest) (int64, error)
 	AttachImage(ctx context.Context, r AttachImageRequest) (int64, error)
-	WithinTx(ctx context.Context, fn func(tx DataStore) error) error
+	WithTx(ctx context.Context, fn func(tx DataStore) error) error
 }

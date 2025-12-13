@@ -88,7 +88,7 @@ type PickWoardRequest struct {
 // it returns a ServiceError with status code 409.
 func (s *WordsService) PickWord(ctx context.Context, r PickWoardRequest) (int64, error) {
 	var pickID int64
-	err := s.store.WithinTx(ctx, func(tx store.DataStore) error {
+	err := s.store.WithTx(ctx, func(tx store.DataStore) error {
 		tags, err := s.tags.GetOrCreateTags(ctx, tx, r.Tags)
 		if err != nil {
 			return fmt.Errorf("get or create tags: %w", err)
@@ -237,7 +237,7 @@ type AddTagsRequest struct {
 // AddTags adds tags to a user's picked word. If the pick does not exist,
 // it returns a ServiceError with status code 404.
 func (s *WordsService) AddTags(ctx context.Context, r AddTagsRequest) error {
-	err := s.store.WithinTx(ctx, func(tx store.DataStore) error {
+	err := s.store.WithTx(ctx, func(tx store.DataStore) error {
 		tagIDs, err := s.tags.GetOrCreateTags(ctx, tx, r.Tags)
 		if err != nil {
 			return fmt.Errorf("get or create tags: %w", err)

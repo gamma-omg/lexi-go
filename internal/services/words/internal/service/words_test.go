@@ -72,7 +72,7 @@ func (m *mockStore) AttachImage(ctx context.Context, r store.AttachImageRequest)
 	return m.AttachImageFunc(ctx, r)
 }
 
-func (m *mockStore) WithinTx(ctx context.Context, fn func(tx store.DataStore) error) error {
+func (m *mockStore) WithTx(ctx context.Context, fn func(tx store.DataStore) error) error {
 	return fn(m)
 }
 

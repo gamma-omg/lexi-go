@@ -332,7 +332,7 @@ func (s *PostresStore) AttachImage(ctx context.Context, r AttachImageRequest) (i
 	return id, nil
 }
 
-func (s *PostresStore) WithinTx(ctx context.Context, fn func(tx DataStore) error) error {
+func (s *PostresStore) WithTx(ctx context.Context, fn func(tx DataStore) error) error {
 	db, ok := s.db.(*sql.DB)
 	if !ok {
 		return fmt.Errorf("begin tx: already in tx")
