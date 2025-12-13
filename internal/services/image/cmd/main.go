@@ -39,7 +39,7 @@ func run(ctx context.Context) error {
 	mux.Handle("/", r)
 
 	api := rest.NewAPI(srv, cfg.ImageStore.MaxSize, cfg.ImageStore.Root)
-	api.Register(r)
+	r.Handle("/", api)
 
 	httpSrv := &http.Server{
 		Addr:         cfg.Http.ListenAddr,

@@ -18,10 +18,6 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/service"
 )
 
-type mux interface {
-	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
-}
-
 type wordsService interface {
 	AddWord(ctx context.Context, r service.AddWordRequest) (int64, error)
 	DeleteWord(ctx context.Context, wordID int64) error
@@ -40,24 +36,33 @@ type imageStore interface {
 type API struct {
 	srv      wordsService
 	imgStore imageStore
+	mux      http.ServeMux
 }
 
 func NewAPI(srv wordsService, imgStore imageStore) *API {
-	return &API{
+	api := &API{
 		srv:      srv,
 		imgStore: imgStore,
+		mux:      *http.NewServeMux(),
 	}
+
+	api.mount()
+	return api
 }
 
-func (api *API) Register(m mux) {
-	m.HandleFunc("PUT /words", api.handleAddWord)
-	m.HandleFunc("DELETE /words/{word_id}", api.handleDeleteWord)
-	m.HandleFunc("PUT /picks", api.handlePickWord)
-	m.HandleFunc("DELETE /picks/{pick_id}", api.handleDeletePick)
-	m.HandleFunc("GET /picks", api.handleGetPicks)
-	m.HandleFunc("DELETE /tags", api.handleDeleteTag)
-	m.HandleFunc("PUT /definitions", api.handleCreateDefinition)
-	m.HandleFunc("PUT /images/{def_id}/{source}", api.handleAttachImage)
+func (api *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	api.mux.ServeHTTP(w, r)
+}
+
+func (api *API) mount() {
+	api.mux.HandleFunc("PUT /words", api.handleAddWord)
+	api.mux.HandleFunc("DELETE /words/{word_id}", api.handleDeleteWord)
+	api.mux.HandleFunc("PUT /picks", api.handlePickWord)
+	api.mux.HandleFunc("DELETE /picks/{pick_id}", api.handleDeletePick)
+	api.mux.HandleFunc("GET /picks", api.handleGetPicks)
+	api.mux.HandleFunc("DELETE /tags", api.handleDeleteTag)
+	api.mux.HandleFunc("PUT /definitions", api.handleCreateDefinition)
+	api.mux.HandleFunc("PUT /images/{def_id}/{source}", api.handleAttachImage)
 }
 
 type addWordRequest struct {

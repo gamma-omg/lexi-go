@@ -72,8 +72,8 @@ func TestPUTWord(t *testing.T) {
 		Lang:  "en",
 		Class: "noun",
 	}
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			AddWordFunc: func(ctx context.Context, r service.AddWordRequest) (int64, error) {
 				if r.Lemma == req.Lemma && r.Lang == model.Lang(req.Lang) && r.Class == "noun" {
 					return 42, nil
@@ -82,12 +82,10 @@ func TestPUTWord(t *testing.T) {
 				return 0, errors.New("unexpected request")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/words", req)
+	rec := testutil.SendRequest(t, api, "PUT", "/words", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	resp := testutil.ParseResponse[addWordResponse](t, rec)
@@ -95,20 +93,18 @@ func TestPUTWord(t *testing.T) {
 }
 
 func TestPUTWord_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/words", "invalid json")
+	rec := testutil.SendRequest(t, api, "PUT", "/words", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestDELETEWord(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			DeleteWordFunc: func(ctx context.Context, wordID int64) error {
 				if wordID == 123 {
 					return nil
@@ -117,24 +113,20 @@ func TestDELETEWord(t *testing.T) {
 				return errors.New("unexpected word ID")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/words/123", nil)
+	rec := testutil.SendRequest(t, api, "DELETE", "/words/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
 func TestDELETEWord_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/words/invalid-id", nil)
+	rec := testutil.SendRequest(t, api, "DELETE", "/words/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -143,8 +135,8 @@ func TestPUTPick(t *testing.T) {
 		WordID: 123,
 		DefID:  456,
 	}
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			PickWordFunc: func(ctx context.Context, r service.PickWoardRequest) (int64, error) {
 				if r.WordID == req.WordID && r.DefID == req.DefID {
 					return 42, nil
@@ -153,12 +145,10 @@ func TestPUTPick(t *testing.T) {
 				return 0, errors.New("unexpected request")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/picks", req)
+	rec := testutil.SendRequest(t, api, "PUT", "/picks", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	resp := testutil.ParseResponse[pickWordResponse](t, rec)
@@ -166,20 +156,18 @@ func TestPUTPick(t *testing.T) {
 }
 
 func TestPUTPicks_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/picks", "invalid json")
+	rec := testutil.SendRequest(t, api, "PUT", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestDELETEPick(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			UnpickWordFunc: func(ctx context.Context, pickID int64) error {
 				if pickID == 123 {
 					return nil
@@ -188,24 +176,20 @@ func TestDELETEPick(t *testing.T) {
 				return errors.New("unexpected pick ID")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/picks/123", nil)
+	rec := testutil.SendRequest(t, api, "DELETE", "/picks/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
 func TestDELETEPick_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/picks/invalid-id", nil)
+	rec := testutil.SendRequest(t, api, "DELETE", "/picks/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -213,8 +197,8 @@ func TestGETPicks(t *testing.T) {
 	req := getPicksRequest{
 		UserID: "user-123",
 	}
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			GetUserPicksFunc: func(ctx context.Context, r service.GetUserPicksRequest) (service.GetUserPicksResponse, error) {
 				if r.UserID == req.UserID {
 					return service.GetUserPicksResponse{
@@ -236,12 +220,10 @@ func TestGETPicks(t *testing.T) {
 				return service.GetUserPicksResponse{}, errors.New("unexpected user ID")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "GET", "/picks", req)
+	rec := testutil.SendRequest(t, api, "GET", "/picks", req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	resp := testutil.ParseResponse[getPicksResponse](t, rec)
@@ -256,14 +238,12 @@ func TestGETPicks(t *testing.T) {
 }
 
 func TestGETPicks_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "GET", "/picks", "invalid json")
+	rec := testutil.SendRequest(t, api, "GET", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -272,8 +252,8 @@ func TestDELETETag(t *testing.T) {
 		PickID: 123,
 		Tags:   []string{"tag1", "tag2"},
 	}
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			RemoveTagsFunc: func(ctx context.Context, r service.RemoveTagsRequest) error {
 				if r.PickID == req.PickID && len(r.Tags) == len(req.Tags) &&
 					r.Tags[0] == req.Tags[0] &&
@@ -284,24 +264,20 @@ func TestDELETETag(t *testing.T) {
 				return errors.New("unexpected request")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/tags", req)
+	rec := testutil.SendRequest(t, api, "DELETE", "/tags", req)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
 func TestDELETETag_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "DELETE", "/tags", "invalid json")
+	rec := testutil.SendRequest(t, api, "DELETE", "/tags", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -311,8 +287,8 @@ func TestPUTDefinition(t *testing.T) {
 		Def:    "Test definition",
 		Rarity: 456,
 	}
-	api := &API{
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			CreateDefinitionFunc: func(ctx context.Context, r service.CreateDefinitionRequest) (int64, error) {
 				if r.WordID == req.WordID && r.Text == req.Def && r.Rarity == req.Rarity {
 					return 42, nil
@@ -321,12 +297,10 @@ func TestPUTDefinition(t *testing.T) {
 				return 0, errors.New("unexpected request")
 			},
 		},
-	}
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/definitions", req)
+	rec := testutil.SendRequest(t, api, "PUT", "/definitions", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	resp := testutil.ParseResponse[createDefinitionResponse](t, rec)
@@ -334,26 +308,19 @@ func TestPUTDefinition(t *testing.T) {
 }
 
 func TestPUTDefinition_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/definitions", "invalid json")
+	rec := testutil.SendRequest(t, api, "PUT", "/definitions", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestPUTImage(t *testing.T) {
 	var attachedImages []service.AttachImageResponse
-	api := &API{
-		imgStore: &mockImageStore{
-			SaveImageFunc: func(ctx context.Context, imgReader io.Reader) (*url.URL, error) {
-				return &url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, nil
-			},
-		},
-		srv: &mockWordsService{
+	api := NewAPI(
+		&mockWordsService{
 			AttachImageFunc: func(ctx context.Context, r service.AttachImageRequest) (service.AttachImageResponse, error) {
 				if r.DefID != 123 || r.Source != model.SrcUser {
 					return service.AttachImageResponse{}, errors.New("unexpected request")
@@ -367,12 +334,14 @@ func TestPUTImage(t *testing.T) {
 				return resp, nil
 			},
 		},
-	}
+		&mockImageStore{
+			SaveImageFunc: func(ctx context.Context, imgReader io.Reader) (*url.URL, error) {
+				return &url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, nil
+			},
+		},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendFile(t, mux, "PUT", "/images/123/user", testutil.TestFile{
+	rec := testutil.SendFile(t, api, "PUT", "/images/123/user", testutil.TestFile{
 		Name:      "image.jpg",
 		FieldName: "image",
 		Content:   strings.NewReader("fake image content"),
@@ -385,13 +354,11 @@ func TestPUTImage(t *testing.T) {
 }
 
 func TestPUTImage_BadRequest(t *testing.T) {
-	api := &API{
-		srv: &mockWordsService{},
-	}
+	api := NewAPI(
+		&mockWordsService{},
+		&mockImageStore{},
+	)
 
-	mux := http.NewServeMux()
-	api.Register(mux)
-
-	rec := testutil.SendRequest(t, mux, "PUT", "/images/invalid-id/user", "invalid json")
+	rec := testutil.SendRequest(t, api, "PUT", "/images/invalid-id/user", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

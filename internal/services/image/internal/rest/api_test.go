@@ -24,16 +24,14 @@ func (m *mockImageService) Upload(img io.Reader) (*url.URL, error) {
 }
 
 func TestPOSTUpload(t *testing.T) {
-	mux := http.NewServeMux()
 	srv := &mockImageService{
 		UploadFunc: func(img io.Reader) (*url.URL, error) {
 			return &url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, nil
 		},
 	}
 	api := NewAPI(srv, 10<<20, t.TempDir())
-	api.Register(mux)
 
-	rec := testutil.SendFile(t, mux, "POST", "/upload", testutil.TestFile{
+	rec := testutil.SendFile(t, api, "POST", "/upload", testutil.TestFile{
 		Name:      "test.jpg",
 		FieldName: "image",
 		Content:   strings.NewReader("test image content"),
@@ -46,10 +44,8 @@ func TestPOSTUpload(t *testing.T) {
 }
 
 func TestGETImage(t *testing.T) {
-	mux := http.NewServeMux()
 	root := t.TempDir()
 	api := NewAPI(&mockImageService{}, 10<<20, root)
-	api.Register(mux)
 
 	err := os.WriteFile(filepath.Join(root, "test.jpg"), []byte("test image content"), 0644)
 	require.NoError(t, err)
@@ -58,7 +54,7 @@ func TestGETImage(t *testing.T) {
 	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
+	api.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "test image content", rec.Body.String())

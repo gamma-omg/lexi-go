@@ -56,7 +56,7 @@ func run(ctx context.Context) error {
 		TagsMaxCost:   cfg.TagsMaxCost,
 	})
 	api := rest.NewAPI(srv, imgStore)
-	api.Register(r)
+	r.Handle("/", api)
 
 	mux.Handle("/api/v1/", r)
 	server := &http.Server{

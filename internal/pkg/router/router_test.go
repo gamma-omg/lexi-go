@@ -93,6 +93,7 @@ func TestSubRouter(t *testing.T) {
 		{"GET", "/api", "/hello", "/api/hello", "hello from subrouter", http.StatusOK},
 		{"POST", "/v1", "/hello/", "/v1/hello/world", "hello from subrouter", http.StatusForbidden},
 		{"POST", "/long/prefix", "/hello", "/long/prefix/hello", "", http.StatusConflict},
+		{"GET", "/api/v1", "/", "/api/v1/method", "", http.StatusOK},
 	}
 
 	for i, c := range tbl {

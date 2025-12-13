@@ -13,30 +13,34 @@ type imageService interface {
 	Upload(img io.Reader) (*url.URL, error)
 }
 
-type mux interface {
-	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
-	Handle(pattern string, handler http.Handler)
-}
-
 type API struct {
 	srv         imageService
 	maxImgSize  int64
 	contentRoot string
+	mux         *http.ServeMux
 }
 
 func NewAPI(srv imageService, maxImgSize int64, contentRoot string) *API {
-	return &API{
+	api := &API{
 		srv:         srv,
 		maxImgSize:  maxImgSize,
 		contentRoot: contentRoot,
+		mux:         http.NewServeMux(),
 	}
+
+	api.mount()
+	return api
 }
 
-func (api *API) Register(m mux) {
+func (api *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	api.mux.ServeHTTP(w, r)
+}
+
+func (api *API) mount() {
 	fs := http.FileServer(http.Dir(api.contentRoot))
 
-	m.HandleFunc("POST /upload", api.handleUploadImage)
-	m.Handle("GET /image/", http.StripPrefix("/image/", fs))
+	api.mux.HandleFunc("POST /upload", api.handleUploadImage)
+	api.mux.Handle("GET /image/", http.StripPrefix("/image/", fs))
 }
 
 type uploadImageResponse struct {
