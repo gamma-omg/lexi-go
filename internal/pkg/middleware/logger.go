@@ -43,7 +43,9 @@ func LogWith(l *slog.Logger) router.Middleware {
 				"url", r.URL.String(),
 				"ip", r.RemoteAddr,
 				"status", statusWriter.Status,
-				"agent", r.UserAgent())
+				"agent", r.UserAgent(),
+				"duration", time.Since(t),
+			)
 		})
 	}
 }
