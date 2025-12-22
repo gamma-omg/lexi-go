@@ -10,7 +10,6 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/oauth"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/store"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/token"
-	"github.com/golang-jwt/jwt"
 )
 
 type tokenIssuer interface {
@@ -68,9 +67,7 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 	}
 
 	at, atErr := s.accessToken.Issue(token.UserClaims{
-		StandardClaims: jwt.StandardClaims{
-			Id: id.User.UID,
-		},
+		ID:       id.User.UID,
 		Email:    id.Email,
 		Provider: id.Provider,
 		Name:     id.Name,
@@ -81,9 +78,7 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 	}
 
 	rt, rtErr := s.refreshToken.Issue(token.UserClaims{
-		StandardClaims: jwt.StandardClaims{
-			Id: id.User.UID,
-		},
+		ID:   id.User.UID,
 		Type: token.TypeRefresh,
 	})
 	if rtErr != nil {
