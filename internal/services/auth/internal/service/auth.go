@@ -16,18 +16,80 @@ type tokenIssuer interface {
 	Issue(claims token.UserClaims) (string, error)
 }
 
+type authenticator interface {
+	LoginURL(env oauth.Env, providerName string) (string, error)
+	Exchange(ctx context.Context, env oauth.Env, providerName, code, state string) (oauth.User, error)
+}
+
 type Auth struct {
-	auth         *oauth.Authenticator
+	auth         authenticator
 	store        store.Store
 	accessToken  tokenIssuer
 	refreshToken tokenIssuer
+}
+
+type AuthOption func(*Auth) *Auth
+
+func WithAuthenticator(a authenticator) AuthOption {
+	return func(s *Auth) *Auth {
+		s.auth = a
+		return s
+	}
+}
+
+func WithStore(st store.Store) AuthOption {
+	return func(s *Auth) *Auth {
+		s.store = st
+		return s
+	}
+}
+
+func WithAccessToken(iss tokenIssuer) AuthOption {
+	return func(s *Auth) *Auth {
+		s.accessToken = iss
+		return s
+	}
+}
+
+func WithRefreshToken(iss tokenIssuer) AuthOption {
+	return func(s *Auth) *Auth {
+		s.refreshToken = iss
+		return s
+	}
+}
+
+func NewAuth(opts ...AuthOption) *Auth {
+	s := &Auth{}
+	for _, opt := range opts {
+		s = opt(s)
+	}
+
+	if s.auth == nil {
+		panic("oauth authenticator is required")
+	}
+
+	if s.store == nil {
+		panic("store is required")
+	}
+
+	if s.accessToken == nil {
+		panic("access token issuer is required")
+	}
+
+	if s.refreshToken == nil {
+		panic("refresh token issuer is required")
+	}
+
+	return s
 }
 
 func (s *Auth) LoginURL(providerName string, env oauth.Env) (string, error) {
 	url, err := s.auth.LoginURL(env, providerName)
 	if err != nil {
 		if errors.Is(err, oauth.ErrProviderNotFound) {
-			return "", serr.NewServiceError(err, http.StatusNotFound, "oauth provider not found: %s", providerName)
+			sErr := serr.NewServiceError(err, http.StatusNotFound, "oauth provider not found")
+			sErr.Env["provider"] = providerName
+			return "", sErr
 		}
 
 		return "", fmt.Errorf("login url: %w", err)
@@ -51,11 +113,15 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 	usr, err := s.auth.Exchange(ctx, env, r.Provider, r.Code, r.State)
 	if err != nil {
 		if errors.Is(err, oauth.ErrProviderNotFound) {
-			return nil, serr.NewServiceError(err, http.StatusNotFound, "provider not found: %s", err)
+			sErr := serr.NewServiceError(err, http.StatusNotFound, "provider not found")
+			sErr.Env["provider"] = r.Provider
+			return nil, sErr
 		}
 
 		if errors.Is(err, oauth.ErrAuthFailed) {
-			return nil, serr.NewServiceError(err, http.StatusUnauthorized, "authentication failed")
+			sErr := serr.NewServiceError(err, http.StatusUnauthorized, "authentication failed")
+			sErr.Env["provider"] = r.Provider
+			return nil, sErr
 		}
 
 		return nil, fmt.Errorf("exchange: %w", err)
