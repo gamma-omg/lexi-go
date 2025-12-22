@@ -34,7 +34,7 @@ func run(ctx context.Context) error {
 	}
 	defer db.Close()
 
-	ps := store.NewPostgresStore(db)
+	pgs := store.NewPostgresStore(db)
 
 	auth := oauth.NewAuthenticator()
 	if err := registerProviders(ctx, auth, cfg); err != nil {
@@ -43,7 +43,7 @@ func run(ctx context.Context) error {
 
 	srv := service.NewAuth(
 		service.WithAuthenticator(auth),
-		service.WithStore(ps),
+		service.WithStore(pgs),
 		service.WithAccessToken(token.NewJWTIssuer(token.JwtConfig{
 			Secret: token.NewSecretString(cfg.JWT.AccessSecret),
 			TTL:    cfg.JWT.AccessTTL,

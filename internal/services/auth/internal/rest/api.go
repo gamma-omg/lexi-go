@@ -1,9 +1,9 @@
 package rest
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/httpx"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/oauth"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/service"
 )
@@ -36,7 +36,7 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 	p := r.PathValue("provider")
 	url, err := a.srv.LoginURL(p, oauth.NewHTTPEnv(w, r))
 	if err != nil {
-		handleError(w, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
@@ -59,28 +59,46 @@ func (a *API) handleCallback(w http.ResponseWriter, r *http.Request) {
 		State:    state,
 	})
 	if err != nil {
-		handleError(w, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	writeJSON(w, callbackResponse{
+	err = httpx.WriteJSON(w, http.StatusOK, callbackResponse{
 		AccessToken:  resp.AccessToken,
 		RefreshToken: resp.RefreshToken,
 	})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type refreshResponse struct {
+	AccessToken string `json:"access_token"`
 }
 
 func (a *API) handleRefresh(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement token refresh
-}
+	var req refreshRequest
+	if err := httpx.ReadJSON(r, &req); err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 
-func handleError(w http.ResponseWriter, err error) {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
-}
-
-func writeJSON(w http.ResponseWriter, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(v)
+	accessToken, err := a.srv.Refresh(r.Context(), req.RefreshToken)
 	if err != nil {
-		handleError(w, err)
+		httpx.HandleErr(w, r, err)
+		return
+	}
+
+	err = httpx.WriteJSON(w, http.StatusOK, refreshResponse{
+		AccessToken: accessToken,
+	})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
 	}
 }

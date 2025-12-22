@@ -9,14 +9,12 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 )
 
-func ParseRequest[T any](r *http.Request) (T, error) {
-	var req T
+func ReadJSON(r *http.Request, out any) error {
 	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&req)
-	return req, err
+	return dec.Decode(out)
 }
 
-func WriteResponse[T any](w http.ResponseWriter, status int, resp T) error {
+func WriteJSON(w http.ResponseWriter, status int, resp any) error {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)

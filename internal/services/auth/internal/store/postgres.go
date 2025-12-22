@@ -46,13 +46,45 @@ func NewPostgresStore(db *sql.DB) *PostgresStore {
 	return &PostgresStore{db: db}
 }
 
-func (s *PostgresStore) GetUserIdentity(ctx context.Context, r GetUserIdentityRequest) (Identity, error) {
+func (s *PostgresStore) GetIdentity(ctx context.Context, r GetIdentityRequest) (Identity, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT i.id, i.provider, i.email, i.name, i.picture, i.created_at, i.updated_at,
 		        u.id, u.uid, u.created_at, u.updated_at	
 		 FROM identities AS i
 		 JOIN users AS u ON i.user_id = u.id
 		 WHERE i.id=$1 AND i.provider=$2`, r.ID, r.Provider)
+
+	id := Identity{User: User{}}
+	err := row.Scan(
+		&id.ID,
+		&id.Provider,
+		&id.Email,
+		&id.Name,
+		&id.Picture,
+		&id.CreatedAt,
+		&id.UpdatedAt,
+		&id.User.ID,
+		&id.User.UID,
+		&id.User.CreatedAt,
+		&id.User.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return id, ErrNotFound
+		}
+
+		return id, fmt.Errorf("scan: %w", err)
+	}
+
+	return id, nil
+}
+
+func (s *PostgresStore) GetUserIdentity(ctx context.Context, r GetUserIdentityRequest) (Identity, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT i.id, i.provider, i.email, i.name, i.picture, i.created_at, i.updated_at,
+		        u.id, u.uid, u.created_at, u.updated_at	
+		 FROM identities AS i
+		 JOIN users AS u ON i.user_id = u.id
+		 WHERE u.uid=$1 AND i.provider=$2`, r.UID, r.Provider)
 
 	id := Identity{User: User{}}
 	err := row.Scan(

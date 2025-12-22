@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
@@ -26,9 +28,14 @@ func (m *mockAuthenticator) Exchange(ctx context.Context, env oauth.Env, provide
 }
 
 type mockStore struct {
+	getIdentityFunc        func(ctx context.Context, r store.GetIdentityRequest) (store.Identity, error)
 	getUserIdentityFunc    func(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error)
 	createUserFunc         func(ctx context.Context) (int64, error)
 	createUserIdentityFunc func(ctx context.Context, r store.CreateUserIdentityRequest) (string, error)
+}
+
+func (m *mockStore) GetIdentity(ctx context.Context, r store.GetIdentityRequest) (store.Identity, error) {
+	return m.getIdentityFunc(ctx, r)
 }
 
 func (m *mockStore) GetUserIdentity(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error) {
@@ -48,11 +55,16 @@ func (m *mockStore) WithTx(ctx context.Context, fn func(store.Store) error) erro
 }
 
 type mockTokenIssuer struct {
-	issueFunc func(claims token.UserClaims) (string, error)
+	issueFunc    func(claims token.UserClaims) (string, error)
+	validateFunc func(token string) (token.UserClaims, error)
 }
 
 func (m *mockTokenIssuer) Issue(claims token.UserClaims) (string, error) {
 	return m.issueFunc(claims)
+}
+
+func (m *mockTokenIssuer) Validate(token string) (token.UserClaims, error) {
+	return m.validateFunc(token)
 }
 
 type mockEnv struct {
@@ -128,7 +140,7 @@ func TestAuth_AuthCallback_UserExists(t *testing.T) {
 			},
 		}),
 		WithStore(&mockStore{
-			getUserIdentityFunc: func(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error) {
+			getIdentityFunc: func(ctx context.Context, r store.GetIdentityRequest) (store.Identity, error) {
 				return store.Identity{
 					ID:       r.ID,
 					Provider: r.Provider,
@@ -178,7 +190,7 @@ func TestAuth_AuthCallback_NewUser(t *testing.T) {
 			},
 		}),
 		WithStore(&mockStore{
-			getUserIdentityFunc: func(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error) {
+			getIdentityFunc: func(ctx context.Context, r store.GetIdentityRequest) (store.Identity, error) {
 				id, ok := identities[r.ID]
 				if !ok {
 					return store.Identity{}, store.ErrNotFound
@@ -302,7 +314,7 @@ func TestAuth_AuthCallback_UnverifiedEmail(t *testing.T) {
 			},
 		}),
 		WithStore(&mockStore{
-			getUserIdentityFunc: func(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error) {
+			getIdentityFunc: func(ctx context.Context, r store.GetIdentityRequest) (store.Identity, error) {
 				id, ok := identities[r.ID]
 				if !ok {
 					return store.Identity{}, store.ErrNotFound
@@ -348,4 +360,59 @@ func TestAuth_AuthCallback_UnverifiedEmail(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Empty(t, id.Email)
+}
+
+func TestAuth_Refresh(t *testing.T) {
+	srv := NewAuth(
+		WithAuthenticator(&mockAuthenticator{}),
+		WithStore(&mockStore{
+			getUserIdentityFunc: func(ctx context.Context, r store.GetUserIdentityRequest) (store.Identity, error) {
+				return store.Identity{
+					ID:       "identity-123",
+					Provider: r.Provider,
+					User: store.User{
+						ID:  1,
+						UID: r.UID,
+					},
+				}, nil
+			},
+		}),
+		WithAccessToken(&mockTokenIssuer{
+			issueFunc: func(claims token.UserClaims) (string, error) {
+				return "new_access_token", nil
+			},
+		}),
+		WithRefreshToken(&mockTokenIssuer{
+			validateFunc: func(tokenStr string) (token.UserClaims, error) {
+				return token.UserClaims{
+					ID:   "uid-123",
+					Type: token.TypeRefresh,
+				}, nil
+			},
+		}),
+	)
+
+	accessToken, err := srv.Refresh(context.Background(), "valid_refresh_token")
+	require.NoError(t, err)
+	require.Equal(t, "new_access_token", accessToken)
+}
+
+func TestAuth_Refresh_InvalidToken(t *testing.T) {
+	srv := NewAuth(
+		WithAuthenticator(&mockAuthenticator{}),
+		WithStore(&mockStore{}),
+		WithAccessToken(&mockTokenIssuer{}),
+		WithRefreshToken(&mockTokenIssuer{
+			validateFunc: func(tokenStr string) (token.UserClaims, error) {
+				return token.UserClaims{}, fmt.Errorf("invalid refresh token")
+			},
+		}),
+	)
+
+	_, err := srv.Refresh(context.Background(), "invalid_refresh_token")
+	require.Error(t, err)
+
+	var sErr *serr.ServiceError
+	require.ErrorAs(t, err, &sErr)
+	assert.Equal(t, http.StatusUnauthorized, sErr.StatusCode)
 }

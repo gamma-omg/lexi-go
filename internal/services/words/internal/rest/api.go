@@ -2,15 +2,13 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 
+	"github.com/gamma-omg/lexi-go/internal/pkg/httpx"
 	"github.com/gamma-omg/lexi-go/internal/pkg/middleware"
 	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/fn"
@@ -76,9 +74,10 @@ type addWordResponse struct {
 }
 
 func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[addWordRequest](r)
+	var req addWordRequest
+	err := httpx.ReadJSON(r, &req)
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -88,23 +87,27 @@ func (api *API) handleAddWord(w http.ResponseWriter, r *http.Request) {
 		Class: model.WordClass(req.Class),
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, addWordResponse{ID: id})
+	err = httpx.WriteJSON(w, http.StatusCreated, addWordResponse{ID: id})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 }
 
 func (api *API) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
 	wordID, err := idFromRequest(r, "word_id")
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
 	err = api.srv.DeleteWord(r.Context(), wordID)
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
@@ -123,9 +126,10 @@ type pickWordResponse struct {
 }
 
 func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[pickWordRequest](r)
+	var req pickWordRequest
+	err := httpx.ReadJSON(r, &req)
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -136,23 +140,27 @@ func (api *API) handlePickWord(w http.ResponseWriter, r *http.Request) {
 		Tags:   req.Tags,
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, pickWordResponse{PickID: pickID})
+	err = httpx.WriteJSON(w, http.StatusCreated, pickWordResponse{PickID: pickID})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 }
 
 func (api *API) handleDeletePick(w http.ResponseWriter, r *http.Request) {
 	pickID, err := idFromRequest(r, "pick_id")
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
 	err = api.srv.UnpickWord(r.Context(), pickID)
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
@@ -183,9 +191,10 @@ type userPickResponse struct {
 }
 
 func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[getPicksRequest](r)
+	var req getPicksRequest
+	err := httpx.ReadJSON(r, &req)
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -197,11 +206,11 @@ func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 		NextCursor:  req.NextCursor,
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	err = writeResponse(w, http.StatusOK, getPicksResponse{
+	err = httpx.WriteJSON(w, http.StatusOK, getPicksResponse{
 		Picks: fn.Map(resp.Picks, func(pick service.UserPick) userPickResponse {
 			return userPickResponse{
 				ID:     pick.ID,
@@ -216,7 +225,7 @@ func (api *API) handleGetPicks(w http.ResponseWriter, r *http.Request) {
 		NextCursor: resp.NextCursor,
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 }
@@ -227,9 +236,10 @@ type deleteTagRequest struct {
 }
 
 func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[deleteTagRequest](r)
+	var req deleteTagRequest
+	err := httpx.ReadJSON(r, &req)
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -238,7 +248,7 @@ func (api *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		Tags:   req.Tags,
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
@@ -257,9 +267,10 @@ type createDefinitionResponse struct {
 }
 
 func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[createDefinitionRequest](r)
+	var req createDefinitionRequest
+	err := httpx.ReadJSON(r, &req)
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request body"))
 		return
 	}
 
@@ -270,11 +281,15 @@ func (api *API) handleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 		Source: model.DataSource(req.Source),
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, createDefinitionResponse{ID: defID})
+	err = httpx.WriteJSON(w, http.StatusCreated, createDefinitionResponse{ID: defID})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 }
 
 type attachImageResponse struct {
@@ -285,21 +300,21 @@ type attachImageResponse struct {
 func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("image")
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid image file"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid image file"))
 		return
 	}
 	defer file.Close()
 
 	imgUrl, err := api.imgStore.SaveImage(r.Context(), file)
 	if err != nil {
-		handleErr(w, r, fmt.Errorf("save image: %w", err))
+		httpx.HandleErr(w, r, fmt.Errorf("save image: %w", err))
 		return
 	}
 
 	source := r.PathValue("source")
 	defID, err := idFromRequest(r, "def_id")
 	if err != nil {
-		handleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid def_id parameter"))
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid def_id parameter"))
 		return
 	}
 
@@ -309,14 +324,18 @@ func (api *API) handleAttachImage(w http.ResponseWriter, r *http.Request) {
 		Source:   model.DataSource(source),
 	})
 	if err != nil {
-		handleErr(w, r, err)
+		httpx.HandleErr(w, r, err)
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, attachImageResponse{
+	err = httpx.WriteJSON(w, http.StatusCreated, attachImageResponse{
 		ImageID:  resp.ImageID,
 		ImageURL: resp.ImageURL,
 	})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 }
 
 func idFromRequest(r *http.Request, param string) (int64, error) {
@@ -327,35 +346,4 @@ func idFromRequest(r *http.Request, param string) (int64, error) {
 	}
 
 	return int64(id), nil
-}
-
-func parseRequest[T any](r *http.Request) (T, error) {
-	var req T
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&req)
-	return req, err
-}
-
-func writeResponse[T any](w http.ResponseWriter, status int, resp T) error {
-	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	return enc.Encode(resp)
-}
-
-func handleErr(w http.ResponseWriter, r *http.Request, err error) {
-	slog.Error("request error",
-		"error", err,
-		"method", r.Method,
-		"url", r.URL.String(),
-		"remote_addr", r.RemoteAddr,
-	)
-
-	var se *serr.ServiceError
-	if errors.As(err, &se) {
-		http.Error(w, se.Msg, se.StatusCode)
-		return
-	}
-
-	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }

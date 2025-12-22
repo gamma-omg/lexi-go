@@ -14,6 +14,7 @@ import (
 
 type tokenIssuer interface {
 	Issue(claims token.UserClaims) (string, error)
+	Validate(token string) (token.UserClaims, error)
 }
 
 type authenticator interface {
@@ -158,8 +159,36 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 	return
 }
 
+func (a *Auth) Refresh(ctx context.Context, refreshToken string) (string, error) {
+	claims, err := a.refreshToken.Validate(refreshToken)
+	if err != nil {
+		return "", serr.NewServiceError(err, http.StatusUnauthorized, "invalid refresh token")
+	}
+
+	id, err := a.store.GetUserIdentity(ctx, store.GetUserIdentityRequest{
+		UID:      claims.ID,
+		Provider: claims.Provider,
+	})
+	if err != nil {
+		return "", serr.NewServiceError(err, http.StatusUnauthorized, "invalid user identity")
+	}
+
+	at, atErr := a.accessToken.Issue(token.UserClaims{
+		ID:       id.User.UID,
+		Email:    id.Email,
+		Provider: id.Provider,
+		Name:     id.Name,
+		Picture:  id.Picture,
+	})
+	if atErr != nil {
+		return "", fmt.Errorf("issue access token: %w", atErr)
+	}
+
+	return at, nil
+}
+
 func (s *Auth) getOrCreateUser(ctx context.Context, provider string, usr oauth.User) (store.Identity, error) {
-	id, err := s.store.GetUserIdentity(ctx, store.GetUserIdentityRequest{
+	id, err := s.store.GetIdentity(ctx, store.GetIdentityRequest{
 		ID:       usr.ID,
 		Provider: provider,
 	})
@@ -186,7 +215,7 @@ func (s *Auth) getOrCreateUser(ctx context.Context, provider string, usr oauth.U
 				return fmt.Errorf("create user identity: %w", err)
 			}
 
-			id, err = tx.GetUserIdentity(ctx, store.GetUserIdentityRequest{
+			id, err = tx.GetIdentity(ctx, store.GetIdentityRequest{
 				ID:       usr.ID,
 				Provider: provider,
 			})

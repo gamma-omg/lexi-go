@@ -62,7 +62,11 @@ func (api *API) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.WriteResponse(w, http.StatusCreated, uploadImageResponse{
+	err = httpx.WriteJSON(w, http.StatusCreated, uploadImageResponse{
 		ImageURL: imgUrl.String(),
 	})
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
 }

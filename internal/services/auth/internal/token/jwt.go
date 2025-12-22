@@ -51,6 +51,7 @@ func (ti *JwtIssuer) Issue(claims UserClaims) (string, error) {
 		Email:    claims.Email,
 		Provider: claims.Provider,
 		Name:     claims.Name,
+		Picture:  claims.Picture,
 	}).SignedString(ti.secret.Get())
 
 	if err != nil {
@@ -58,4 +59,30 @@ func (ti *JwtIssuer) Issue(claims UserClaims) (string, error) {
 	}
 
 	return tk, nil
+}
+
+func (ti *JwtIssuer) Validate(tokenStr string) (UserClaims, error) {
+	tok, err := jwt.ParseWithClaims(tokenStr, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method.Alg() != ti.algorithm {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return ti.secret.Get(), nil
+	})
+	if err != nil {
+		return UserClaims{}, fmt.Errorf("parse token: %w", err)
+	}
+
+	claims, ok := tok.Claims.(*jwtClaims)
+	if !ok || !tok.Valid {
+		return UserClaims{}, fmt.Errorf("invalid token claims")
+	}
+
+	return UserClaims{
+		Type:     claims.Type,
+		ID:       claims.Id,
+		Email:    claims.Email,
+		Provider: claims.Provider,
+		Name:     claims.Name,
+		Picture:  claims.Picture,
+	}, nil
 }

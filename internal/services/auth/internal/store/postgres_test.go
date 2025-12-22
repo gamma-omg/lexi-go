@@ -56,7 +56,7 @@ func TestGetIdentity(t *testing.T) {
 			"google")
 	)
 
-	id, err := pgs.GetUserIdentity(t.Context(), GetUserIdentityRequest{
+	id, err := pgs.GetIdentity(t.Context(), GetIdentityRequest{
 		ID:       "identity_1",
 		Provider: "google",
 	})
