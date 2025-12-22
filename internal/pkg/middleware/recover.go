@@ -13,6 +13,14 @@ func Recover() router.Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
+					if err == http.ErrAbortHandler {
+						slog.Warn("request aborted by the client",
+							"method", r.Method,
+							"url", r.URL.String(),
+							"remote_addr", r.RemoteAddr)
+						return
+					}
+
 					slog.Error("internal server error",
 						"error", err,
 						"method", r.Method,
