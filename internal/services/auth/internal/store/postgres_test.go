@@ -12,8 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var db *sql.DB
-var pgs *PostgresStore
+var (
+	db  *sql.DB
+	pgs *PostgresStore
+)
+
+const migrationsFolder = "../../db/migrations"
 
 func TestMain(m *testing.M) {
 	res, close := testdb.StartPostgres(context.Background(), testdb.PostgresStartRequest{
@@ -40,7 +44,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetIdentity(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 	var (
 		userID = testdb.Query(t, db, "INSERT INTO users DEFAULT VALUES RETURNING id").AsInt64()
 		_      = testdb.Query(t, db, "INSERT INTO identities (user_id, id, email, name, picture, provider) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -67,7 +71,7 @@ func TestGetIdentity(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	userID, err := pgs.CreateUser(t.Context())
 	require.NoError(t, err)
@@ -78,7 +82,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestCreateUserIdentity(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 	userID := testdb.Query(t, db, "INSERT INTO users DEFAULT VALUES RETURNING id").AsInt64()
 
 	req := CreateUserIdentityRequest{
@@ -108,7 +112,7 @@ func TestCreateUserIdentity(t *testing.T) {
 }
 
 func TestWithTx(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	err := pgs.WithTx(t.Context(), func(tx Store) error {
 		userID, err := tx.CreateUser(t.Context())
@@ -135,7 +139,7 @@ func TestWithTx(t *testing.T) {
 }
 
 func TestWithTxRollback(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	err := pgs.WithTx(t.Context(), func(tx Store) error {
 		userID, err := tx.CreateUser(t.Context())

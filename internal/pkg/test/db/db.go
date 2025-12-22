@@ -64,7 +64,7 @@ func StartPostgres(ctx context.Context, cfg PostgresStartRequest) (PostgresStart
 	}, closer
 }
 
-func RunMigrations(t *testing.T, db *sql.DB) {
+func RunMigrations(t *testing.T, db *sql.DB, folder string) {
 	t.Helper()
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
@@ -73,7 +73,7 @@ func RunMigrations(t *testing.T, db *sql.DB) {
 	}
 
 	migrator, err := migrate.NewWithDatabaseInstance(
-		"file://../../db/migrations",
+		"file://"+folder,
 		"test", driver)
 	if err != nil {
 		t.Fatalf("failed to create migrator: %v", err)

@@ -14,8 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var db *sql.DB
-var pgstore *PostresStore
+var (
+	db      *sql.DB
+	pgstore *PostresStore
+)
+
+const migrationsFolder = "../../db/migrations"
 
 func TestMain(m *testing.M) {
 	res, closer := testdb.StartPostgres(context.Background(), testdb.PostgresStartRequest{
@@ -43,7 +47,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInsertWord(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	id, err := pgstore.InsertWord(context.Background(), InsertWordRequst{
 		Lemma: "testword",
@@ -63,7 +67,7 @@ func TestInsertWord(t *testing.T) {
 }
 
 func TestInsertWord_Exists(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.InsertWord(t.Context(), InsertWordRequst{
 		Lemma: "existingword",
@@ -82,7 +86,7 @@ func TestInsertWord_Exists(t *testing.T) {
 }
 
 func TestDeleteWord(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	id, err := pgstore.InsertWord(t.Context(), InsertWordRequst{
 		Lemma: "wordtodelete",
@@ -105,7 +109,7 @@ func TestDeleteWord(t *testing.T) {
 }
 
 func TestDeleteWord_NotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	err := pgstore.DeleteWord(t.Context(), DeleteWordRequest{
 		ID: 999999,
@@ -114,7 +118,7 @@ func TestDeleteWord_NotFound(t *testing.T) {
 }
 
 func TestCreateUserPick(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -137,7 +141,7 @@ func TestCreateUserPick(t *testing.T) {
 }
 
 func TestCreateUserPick_Exists(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -160,7 +164,7 @@ func TestCreateUserPick_Exists(t *testing.T) {
 }
 
 func TestDeleteUserPick(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -183,7 +187,7 @@ func TestDeleteUserPick(t *testing.T) {
 }
 
 func TestGetUserPicks(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -211,7 +215,7 @@ func TestGetUserPicks(t *testing.T) {
 }
 
 func TestGetUserPicks_WithTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -247,7 +251,7 @@ func TestGetUserPicks_WithTags(t *testing.T) {
 }
 
 func TestGetUserPicks_WithoutTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID  = "user-123"
@@ -280,7 +284,7 @@ func TestGetUserPicks_WithoutTags(t *testing.T) {
 }
 
 func TestGetUserPicks_Pagination(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -321,7 +325,7 @@ func TestGetUserPicks_Pagination(t *testing.T) {
 }
 
 func TestDeleteUserPick_NotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	err := pgstore.DeleteUserPick(t.Context(), DeleteUserPickRequest{
 		PickID: 999999,
@@ -330,7 +334,7 @@ func TestDeleteUserPick_NotFound(t *testing.T) {
 }
 
 func TestCreateTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	tags, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tag1", "tag2", "tag3"},
@@ -352,7 +356,7 @@ func TestCreateTags(t *testing.T) {
 }
 
 func TestCreateTags_ExistingTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tag1", "tag2"},
@@ -378,7 +382,7 @@ func TestCreateTags_ExistingTags(t *testing.T) {
 }
 
 func TestCreateTags_EmptyInput(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	tags, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{Tags: []string{}})
 	require.NoError(t, err)
@@ -386,7 +390,7 @@ func TestCreateTags_EmptyInput(t *testing.T) {
 }
 
 func TestGetTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tagA", "tagB", "tagC"},
@@ -413,7 +417,7 @@ func TestGetTags(t *testing.T) {
 }
 
 func TestGetTags_PartialMissing(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.CreateTags(t.Context(), CreateTagsRequest{
 		Tags: []string{"tagX", "tagY"},
@@ -438,7 +442,7 @@ func TestGetTags_PartialMissing(t *testing.T) {
 }
 
 func TestGetTags_AllMissing(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{"missingTag1", "missingTag2"},
@@ -448,7 +452,7 @@ func TestGetTags_AllMissing(t *testing.T) {
 }
 
 func TestGetTags_EmptyInput(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	tags, err := pgstore.GetTags(t.Context(), GetTagsRequest{
 		Tags: []string{},
@@ -458,7 +462,7 @@ func TestGetTags_EmptyInput(t *testing.T) {
 }
 
 func TestAddTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -489,7 +493,7 @@ func TestAddTags(t *testing.T) {
 }
 
 func TestAddTags_PickNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var tagID = testdb.Query(t, db, "INSERT INTO tags (tag) VALUES ($1) RETURNING id", "tagForNonExistentPick").AsInt64()
 	err := pgstore.AddTags(t.Context(), AddTagsRequest{
@@ -501,7 +505,7 @@ func TestAddTags_PickNotFound(t *testing.T) {
 }
 
 func TestAddTags_TagNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -519,7 +523,7 @@ func TestAddTags_TagNotFound(t *testing.T) {
 }
 
 func TestAddTags_ExistingTag(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -539,7 +543,7 @@ func TestAddTags_ExistingTag(t *testing.T) {
 }
 
 func TestRemoveTags_MultipleTags(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -578,7 +582,7 @@ func TestRemoveTags_MultipleTags(t *testing.T) {
 }
 
 func TestRemoveTags_SingleTag(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -603,7 +607,7 @@ func TestRemoveTags_SingleTag(t *testing.T) {
 }
 
 func TestRemoveTag_PickNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	err := pgstore.RemoveTags(t.Context(), RemoveTagsRequest{
 		PickID: 888888,
@@ -613,7 +617,7 @@ func TestRemoveTag_PickNotFound(t *testing.T) {
 }
 
 func TestRemoveTags_TagNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		userID = "user-123"
@@ -630,7 +634,7 @@ func TestRemoveTags_TagNotFound(t *testing.T) {
 }
 
 func TestCreateDefinition(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	wordID := testdb.Query(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "defword", "en", "noun").AsInt64()
 
@@ -652,7 +656,7 @@ func TestCreateDefinition(t *testing.T) {
 }
 
 func TestCreateDefinition_Exists(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	wordID := testdb.Query(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingdefword", "en", "noun").AsInt64()
 
@@ -673,7 +677,7 @@ func TestCreateDefinition_Exists(t *testing.T) {
 }
 
 func TestCreateDefinition_WordNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.CreateDefinition(t.Context(), CreateDefinitionRequest{
 		WordID: 999999,
@@ -685,7 +689,7 @@ func TestCreateDefinition_WordNotFound(t *testing.T) {
 }
 
 func TestAttachImage(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		wordID = testdb.Query(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "imageword", "en", "noun").AsInt64()
@@ -708,7 +712,7 @@ func TestAttachImage(t *testing.T) {
 }
 
 func TestAttachImage_DefinitionNotFound(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	_, err := pgstore.AttachImage(t.Context(), AttachImageRequest{
 		DefID:    999999,
@@ -720,7 +724,7 @@ func TestAttachImage_DefinitionNotFound(t *testing.T) {
 }
 
 func TestAttachImage_Exists(t *testing.T) {
-	testdb.RunMigrations(t, db)
+	testdb.RunMigrations(t, db, migrationsFolder)
 
 	var (
 		wordID = testdb.Query(t, db, "INSERT INTO words (lemma, lang, class) VALUES ($1, $2, $3) RETURNING id", "existingimageword", "en", "noun").AsInt64()

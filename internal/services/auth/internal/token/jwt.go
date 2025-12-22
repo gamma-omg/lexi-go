@@ -30,7 +30,7 @@ type jwtClaims struct {
 	Picture  string `json:"picture"`
 }
 
-func NewTokenIssuer(cfg JwtConfig) *JwtIssuer {
+func NewJWTIssuer(cfg JwtConfig) *JwtIssuer {
 	return &JwtIssuer{
 		secret:    cfg.Secret,
 		algorithm: cfg.Algorithm,
