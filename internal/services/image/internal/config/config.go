@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	AuthSecret string
-	Http       httpConfig
+	HTTP       httpConfig
 	ImageStore imageConfig
 }
 
@@ -32,7 +32,7 @@ type imageConfig struct {
 func FromEnv() Config {
 	return Config{
 		AuthSecret: env.RequireString("AUTH_SECRET"),
-		Http: httpConfig{
+		HTTP: httpConfig{
 			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ":8080"),
 			IdleTimeout:     env.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
 			ReadTimeout:     env.Duration("HTTP_READ_TIMEOUT", 30*time.Second),

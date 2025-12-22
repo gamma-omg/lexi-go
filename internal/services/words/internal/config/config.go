@@ -11,7 +11,7 @@ type Config struct {
 	TagsMaxKeys int64
 	TagsMaxCost int64
 	DB          dbConfig
-	Http        httpConfig
+	HTTP        httpConfig
 	Image       imageConfig
 }
 
@@ -49,7 +49,7 @@ func FromEnv() Config {
 			Password: env.String("DB_PASSWORD", "password"),
 			Name:     env.String("DB_NAME", "words_service"),
 		},
-		Http: httpConfig{
+		HTTP: httpConfig{
 			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ":8080"),
 			IdleTimeout:     env.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
 			ReadTimeout:     env.Duration("HTTP_READ_TIMEOUT", 30*time.Second),

@@ -7,7 +7,8 @@ import (
 )
 
 type Config struct {
-	http httpConfig
+	HTTP httpConfig
+	JWT  jwtConfig
 }
 
 type httpConfig struct {
@@ -18,14 +19,27 @@ type httpConfig struct {
 	ShutdownTimeout time.Duration
 }
 
+type jwtConfig struct {
+	AccessSecret  string
+	RefreshSecret string
+	AccessTTL     time.Duration
+	RefreshTTL    time.Duration
+}
+
 func FromEnv() Config {
 	return Config{
-		http: httpConfig{
+		HTTP: httpConfig{
 			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ":8080"),
 			ReadTimeout:     env.Duration("HTTP_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout:    env.Duration("HTTP_WRITE_TIMEOUT", 30*time.Second),
 			IdleTimeout:     env.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
 			ShutdownTimeout: env.Duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
+		},
+		JWT: jwtConfig{
+			AccessSecret:  env.RequireString("JWT_ACCESS_SECRET"),
+			RefreshSecret: env.RequireString("JWT_REFRESH_SECRET"),
+			AccessTTL:     env.Duration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:    env.Duration("JWT_REFRESH_TTL", 7*24*time.Hour),
 		},
 	}
 }

@@ -42,10 +42,10 @@ func run(ctx context.Context) error {
 	r.Handle("/", api)
 
 	httpSrv := &http.Server{
-		Addr:         cfg.Http.ListenAddr,
-		IdleTimeout:  cfg.Http.IdleTimeout,
-		ReadTimeout:  cfg.Http.ReadTimeout,
-		WriteTimeout: cfg.Http.WriteTimeout,
+		Addr:         cfg.HTTP.ListenAddr,
+		IdleTimeout:  cfg.HTTP.IdleTimeout,
+		ReadTimeout:  cfg.HTTP.ReadTimeout,
+		WriteTimeout: cfg.HTTP.WriteTimeout,
 		Handler:      r,
 	}
 
@@ -61,7 +61,7 @@ func run(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		slog.Info("shutting down HTTP server")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Http.ShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 		defer cancel()
 		return httpSrv.Shutdown(shutdownCtx)
 	case err := <-errCh:

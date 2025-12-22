@@ -63,16 +63,16 @@ func run(ctx context.Context) error {
 	auth.Handle("/", api)
 
 	server := &http.Server{
-		Addr:         cfg.Http.ListenAddr,
-		IdleTimeout:  cfg.Http.IdleTimeout,
-		ReadTimeout:  cfg.Http.ReadTimeout,
-		WriteTimeout: cfg.Http.WriteTimeout,
+		Addr:         cfg.HTTP.ListenAddr,
+		IdleTimeout:  cfg.HTTP.IdleTimeout,
+		ReadTimeout:  cfg.HTTP.ReadTimeout,
+		WriteTimeout: cfg.HTTP.WriteTimeout,
 		Handler:      r,
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("starting HTTP server", "addr", cfg.Http.ListenAddr)
+		slog.Info("starting HTTP server", "addr", cfg.HTTP.ListenAddr)
 		errCh <- server.ListenAndServe()
 	}()
 
@@ -83,7 +83,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Http.ShutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
