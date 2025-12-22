@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
+	"github.com/gamma-omg/lexi-go/internal/pkg/test"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -86,7 +86,7 @@ func TestRun(t *testing.T) {
 	}()
 
 	go func() {
-		ready <- testutil.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
+		ready <- test.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
 			resp, err := http.Get("http://localhost:8080/readyz")
 			if err != nil {
 				return false
@@ -98,7 +98,7 @@ func TestRun(t *testing.T) {
 	}()
 
 	go func() {
-		healthy <- testutil.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
+		healthy <- test.WaitFor(t, ctx, 500*time.Millisecond, func() bool {
 			resp, err := http.Get("http://localhost:8080/healthz")
 			if err != nil {
 				return false

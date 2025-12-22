@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
+	"github.com/gamma-omg/lexi-go/internal/pkg/test"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/model"
 	"github.com/gamma-omg/lexi-go/internal/services/words/internal/service"
 	"github.com/stretchr/testify/assert"
@@ -85,10 +85,10 @@ func TestPUTWord(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/words", req)
+	rec := test.SendRequest(t, api, "PUT", "/words", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := testutil.ParseResponse[addWordResponse](t, rec)
+	resp := test.ParseResponse[addWordResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ID)
 }
 
@@ -98,7 +98,7 @@ func TestPUTWord_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/words", "invalid json")
+	rec := test.SendRequest(t, api, "PUT", "/words", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -116,7 +116,7 @@ func TestDELETEWord(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/words/123", nil)
+	rec := test.SendRequest(t, api, "DELETE", "/words/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -126,7 +126,7 @@ func TestDELETEWord_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/words/invalid-id", nil)
+	rec := test.SendRequest(t, api, "DELETE", "/words/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -148,10 +148,10 @@ func TestPUTPick(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/picks", req)
+	rec := test.SendRequest(t, api, "PUT", "/picks", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := testutil.ParseResponse[pickWordResponse](t, rec)
+	resp := test.ParseResponse[pickWordResponse](t, rec)
 	assert.Equal(t, int64(42), resp.PickID)
 }
 
@@ -161,7 +161,7 @@ func TestPUTPicks_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/picks", "invalid json")
+	rec := test.SendRequest(t, api, "PUT", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -179,7 +179,7 @@ func TestDELETEPick(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/picks/123", nil)
+	rec := test.SendRequest(t, api, "DELETE", "/picks/123", nil)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -189,7 +189,7 @@ func TestDELETEPick_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/picks/invalid-id", nil)
+	rec := test.SendRequest(t, api, "DELETE", "/picks/invalid-id", nil)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -223,10 +223,10 @@ func TestGETPicks(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "GET", "/picks", req)
+	rec := test.SendRequest(t, api, "GET", "/picks", req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	resp := testutil.ParseResponse[getPicksResponse](t, rec)
+	resp := test.ParseResponse[getPicksResponse](t, rec)
 	assert.Len(t, resp.Picks, 1)
 	assert.Equal(t, int64(1), resp.Picks[0].ID)
 	assert.Equal(t, "user-123", resp.Picks[0].UserID)
@@ -243,7 +243,7 @@ func TestGETPicks_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "GET", "/picks", "invalid json")
+	rec := test.SendRequest(t, api, "GET", "/picks", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -267,7 +267,7 @@ func TestDELETETag(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/tags", req)
+	rec := test.SendRequest(t, api, "DELETE", "/tags", req)
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
@@ -277,7 +277,7 @@ func TestDELETETag_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "DELETE", "/tags", "invalid json")
+	rec := test.SendRequest(t, api, "DELETE", "/tags", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -300,10 +300,10 @@ func TestPUTDefinition(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/definitions", req)
+	rec := test.SendRequest(t, api, "PUT", "/definitions", req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := testutil.ParseResponse[createDefinitionResponse](t, rec)
+	resp := test.ParseResponse[createDefinitionResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ID)
 }
 
@@ -313,7 +313,7 @@ func TestPUTDefinition_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/definitions", "invalid json")
+	rec := test.SendRequest(t, api, "PUT", "/definitions", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -341,14 +341,14 @@ func TestPUTImage(t *testing.T) {
 		},
 	)
 
-	rec := testutil.SendFile(t, api, "PUT", "/images/123/user", testutil.TestFile{
+	rec := test.SendFile(t, api, "PUT", "/images/123/user", test.TestFile{
 		Name:      "image.jpg",
 		FieldName: "image",
 		Content:   strings.NewReader("fake image content"),
 	})
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := testutil.ParseResponse[attachImageResponse](t, rec)
+	resp := test.ParseResponse[attachImageResponse](t, rec)
 	assert.Equal(t, int64(42), resp.ImageID)
 	assert.Equal(t, url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, *resp.ImageURL)
 }
@@ -359,6 +359,6 @@ func TestPUTImage_BadRequest(t *testing.T) {
 		&mockImageStore{},
 	)
 
-	rec := testutil.SendRequest(t, api, "PUT", "/images/invalid-id/user", "invalid json")
+	rec := test.SendRequest(t, api, "PUT", "/images/invalid-id/user", "invalid json")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

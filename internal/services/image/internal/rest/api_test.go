@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gamma-omg/lexi-go/internal/pkg/testutil"
+	"github.com/gamma-omg/lexi-go/internal/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func TestPOSTUpload(t *testing.T) {
 	}
 	api := NewAPI(srv, 10<<20, t.TempDir())
 
-	rec := testutil.SendFile(t, api, "POST", "/upload", testutil.TestFile{
+	rec := test.SendFile(t, api, "POST", "/upload", test.TestFile{
 		Name:      "test.jpg",
 		FieldName: "image",
 		Content:   strings.NewReader("test image content"),
@@ -39,7 +39,7 @@ func TestPOSTUpload(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	resp := testutil.ParseResponse[uploadImageResponse](t, rec)
+	resp := test.ParseResponse[uploadImageResponse](t, rec)
 	assert.Equal(t, "https://images.example.com/image123.jpg", resp.ImageURL)
 }
 
