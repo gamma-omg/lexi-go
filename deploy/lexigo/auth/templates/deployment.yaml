@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lexigo-auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lexigo-auth
+  template:
+    metadata:
+      labels:
+        app: lexigo-auth
+    spec:
+      containers:
+        - name: auth
+          image: "{{ .Values.container.image }}:{{ .Values.container.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: lexigo-auth-config
+          env:
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-auth
+                  key: JWT_ACCESS_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-auth
+                  key: JWT_REFRESH_SECRET
+            - name: OAUTH_GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-auth
+                  key: OAUTH_GOOGLE_CLIENT_ID
+            - name: OAUTH_GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lexigo-auth
+                  key: OAUTH_GOOGLE_CLIENT_SECRET

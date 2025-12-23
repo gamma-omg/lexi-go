@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lexigo-image
+version: 0.0.1
+description: LexiGO images storage service
+type: application

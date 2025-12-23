@@ -1,0 +1,35 @@
+auth:
+  http:
+    listenAddr: ":8080"
+
+  db:
+    host: "lexigo-auth-db"
+    port: 5432
+    user: "pg-user"
+    password: "pg-pass"
+    name: "auth_db"
+
+  jwt:
+    issuer: "lexigo-auth-service"
+    access:
+      ttl: 15m
+      algorithm: "ES256"
+      privateKey: <file path>
+    refresh:
+      ttl: 168h
+      algorithm: "HS256"
+      key: <file path>
+
+  google:
+    clientID: <Google client ID>
+    clientSecret: <Google client secret>
+    redirectURL: "http://localhost:8080/auth/google/callback"
+
+container:
+  image: "lexi-go/auth"
+  tag: "latest"
+
+migrator:
+  image: "lexi-go/auth-db-migrations"
+  tag: "latest"
+  databaseUrl: "postgres://pg-user:pg-pass@lexigo-auth-db:5432/auth_db?sslmode=disable"

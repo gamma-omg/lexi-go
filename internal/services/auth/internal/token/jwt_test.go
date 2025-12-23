@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,9 +12,9 @@ import (
 func TestJWTIssuer(t *testing.T) {
 	secret := NewSecretString("test_secret")
 	issuer := NewJWTIssuer(JwtConfig{
-		Secret:    secret,
-		Algorithm: "HS256",
 		Issuer:    "test-issuer",
+		Secret:    secret,
+		Algorithm: jwt.SigningMethodHS256.Name,
 		TTL:       time.Hour,
 	})
 

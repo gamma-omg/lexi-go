@@ -1,0 +1,3 @@
+auth:
+  jwt:
+    publicKey: <file path>

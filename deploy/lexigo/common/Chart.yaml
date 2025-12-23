@@ -1,0 +1,5 @@
+apiVersion: v2
+name: common
+description: shared kubernetes resources
+version: 0.0.1
+type: application

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lexigo-image-config
+  namespace: lexigo
+data:
+  HTTP_LISTEN_ADDR: "{{ .Values.image.http.listenAddr }}"
+  IMAGE_SERVE_ROOT: "{{ .Values.image.content.serveRoot }}"
+  IMAGE_MAX_SIZE: "{{ .Values.image.content.maxSize }}"
+  IMAGE_MAX_WIDTH: "{{ .Values.image.content.maxWidth }}"
+  IMAGE_MAX_HEIGHT: "{{ .Values.image.content.maxHeight }}"

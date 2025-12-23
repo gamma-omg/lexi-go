@@ -30,7 +30,7 @@ func run(ctx context.Context) error {
 		DB:       cfg.DB.Name,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to connect to db")
+		return fmt.Errorf("failed to connect to db: %w", err)
 	}
 	defer db.Close()
 

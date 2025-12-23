@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lexigo-words-config
+  namespace: lexigo
+data:
+  HTTP_LISTEN_ADDR: "{{ .Values.words.http.listenAddr }}"
+  IMAGE_SERVICE: "{{ .Values.words.deps.imageService }}"
+  DB_HOST: "{{ .Values.words.db.host }}"
+  DB_PORT: "{{ .Values.words.db.port }}"
+  DB_USER: "{{ .Values.words.db.user }}"
+  DB_PASSWORD: "{{ .Values.words.db.password }}"
+  DB_NAME: "{{ .Values.words.db.name }}"

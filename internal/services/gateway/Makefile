@@ -6,5 +6,6 @@ image:
 
 .PHONY: deploy
 deploy: image
-	@kubectl apply -f ../../../deploy/lexigo/gateway/ -n lexigo
-	@kubectl rollout restart deployment/lexigo-gateway -n lexigo
+	@helm upgrade -n lexigo --install lexigo-gateway ../../../deploy/lexigo/gateway \
+		-f ../../../deploy/lexigo/gateway/values.${TAG}.yaml \
+		--set container.tag=${TAG}

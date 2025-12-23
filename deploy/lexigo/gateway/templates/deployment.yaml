@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: lexi-go/gateway:dev
+          image: "{{ .Values.container.image }}:{{ .Values.container.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

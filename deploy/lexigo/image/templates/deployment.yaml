@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: lexigo-words
+  name: lexigo-image
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: lexigo-words
+      app: lexigo-image
   template:
     metadata:
       labels:
-        app: lexigo-words
+        app: lexigo-image
     spec:
       containers:
-        - name: words
-          image: lexi-go/words:dev
+        - name: image
+          image: "{{ .Values.container.image }}:{{ .Values.container.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: lexigo-words-config
+                name: lexigo-image-config
           env:
             - name: AUTH_SECRET
               valueFrom:

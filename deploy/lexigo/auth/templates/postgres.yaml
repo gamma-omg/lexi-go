@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: lexigo-db
+  name: lexigo-auth-db
 spec:
-  serviceName: "lexigo-db"
+  serviceName: "lexigo-auth-db"
   replicas: 1
   selector:
     matchLabels:
-      app: lexigo-db
+      app: lexigo-auth-db
   template:
     metadata:
       labels:
-        app: lexigo-db
+        app: lexigo-auth-db
     spec:
       containers:
         - name: postgres
@@ -20,17 +20,17 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: "pg-user"
+              value: "{{ .Values.auth.db.user }}"
             - name: POSTGRES_PASSWORD
-              value: "pg-pass"
+              value: "{{ .Values.auth.db.password }}"
             - name: POSTGRES_DB
-              value: "words_db"
+              value: "{{ .Values.auth.db.name }}"
           volumeMounts:
-            - name: postgres-storage
+            - name: lexigo-auth-db-storage
               mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
     - metadata:
-        name: postgres-storage
+        name: lexigo-auth-db-storage
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:

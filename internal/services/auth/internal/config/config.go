@@ -22,10 +22,13 @@ type httpConfig struct {
 }
 
 type jwtConfig struct {
-	AccessSecret  string
-	RefreshSecret string
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
+	AccessSecret     string
+	RefreshSecret    string
+	Issuer           string
+	AlgorithmAccess  string
+	AlgorithmRefresh string
+	AccessTTL        time.Duration
+	RefreshTTL       time.Duration
 }
 
 type dbConfig struct {
@@ -56,10 +59,13 @@ func FromEnv() Config {
 			ShutdownTimeout: env.Duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
 		},
 		JWT: jwtConfig{
-			AccessSecret:  env.RequireString("JWT_ACCESS_SECRET"),
-			RefreshSecret: env.RequireString("JWT_REFRESH_SECRET"),
-			AccessTTL:     env.Duration("JWT_ACCESS_TTL", 15*time.Minute),
-			RefreshTTL:    env.Duration("JWT_REFRESH_TTL", 7*24*time.Hour),
+			AccessSecret:     env.RequireString("JWT_ACCESS_SECRET"),
+			RefreshSecret:    env.RequireString("JWT_REFRESH_SECRET"),
+			Issuer:           env.String("JWT_ISSUER", "lexigo-auth-service"),
+			AlgorithmAccess:  env.String("JWT_ALGORITHM_ACCESS", "ES256"),
+			AlgorithmRefresh: env.String("JWT_ALGORITHM_REFRESH", "HS256"),
+			AccessTTL:        env.Duration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:       env.Duration("JWT_REFRESH_TTL", 7*24*time.Hour),
 		},
 		DB: dbConfig{
 			Host:     env.String("DB_HOST", "localhost"),

@@ -11,5 +11,8 @@ migrate: image
 
 .PHONY: deploy
 deploy: image
-	@kubectl apply -f ../../../deploy/lexigo/words/ -n lexigo
-	@kubectl rollout restart deployment/lexigo-words -n lexigo
+	@helm upgrade -n lexigo --install lexigo-words ../../../deploy/lexigo/words/ \
+		-f ../../../deploy/lexigo/words/values.${TAG}.yaml \
+	    --set container.tag=${TAG} \
+		--set migrator.tag=${TAG} \
+

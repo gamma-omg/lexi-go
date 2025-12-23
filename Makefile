@@ -1,3 +1,5 @@
+include scripts/keys.mk
+
 TAG ?= dev
 
 .PHONY: up
@@ -25,10 +27,15 @@ image: proto
 	make -C internal/services/gateway image TAG=${TAG}
 	make -C internal/services/words image TAG=${TAG}
 	make -C internal/services/image image TAG=${TAG}
+	make -C internal/services/auth image TAG=${TAG}
 
 .PHONY: deploy
-deploy:
-	kubectl apply -f deploy/lexigo/common -n lexigo
+deploy: keys
+	@helm upgrade -n lexigo --install lexigo-common deploy/lexigo/common \
+		-f deploy/lexigo/common/values.${TAG}.yaml
+
 	make -C internal/services/gateway deploy TAG=${TAG}
+	make -C internal/services/auth deploy TAG=${TAG}
 	make -C internal/services/words deploy TAG=${TAG}
 	make -C internal/services/image deploy TAG=${TAG}
+	make -C internal/services/auth deploy TAG=${TAG}
