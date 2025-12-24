@@ -2,11 +2,13 @@ package oauth
 
 import "net/http"
 
+// HTTPEnv implements the Env interface using HTTP cookies
 type HTTPEnv struct {
 	w http.ResponseWriter
 	r *http.Request
 }
 
+// NewHTTPEnv creates a new HTTPEnv instance
 func NewHTTPEnv(w http.ResponseWriter, r *http.Request) *HTTPEnv {
 	return &HTTPEnv{w: w, r: r}
 }

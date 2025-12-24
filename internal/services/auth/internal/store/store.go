@@ -9,6 +9,7 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
+// Store defines the interface for user and identity storage
 type Store interface {
 	GetIdentity(ctx context.Context, r GetIdentityRequest) (Identity, error)
 	GetUserIdentity(ctx context.Context, r GetUserIdentityRequest) (Identity, error)

@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+// JwtIssuer implements the tokenIssuer interface using JWTs
 type JwtIssuer struct {
 	secret    secretProvider
 	algorithm string
@@ -14,6 +15,7 @@ type JwtIssuer struct {
 	ttl       time.Duration
 }
 
+// JwtConfig holds the configuration for the JwtIssuer
 type JwtConfig struct {
 	Secret    secretProvider
 	Algorithm string
@@ -21,6 +23,7 @@ type JwtConfig struct {
 	TTL       time.Duration
 }
 
+// jwtClaims represents the JWT claims to be userd with jwt library
 type jwtClaims struct {
 	jwt.StandardClaims
 	Type     Type   `json:"typ"`
@@ -30,6 +33,7 @@ type jwtClaims struct {
 	Picture  string `json:"picture"`
 }
 
+// NewJWTIssuer creates a new JwtIssuer with the given configuration
 func NewJWTIssuer(cfg JwtConfig) *JwtIssuer {
 	return &JwtIssuer{
 		secret:    cfg.Secret,
@@ -39,6 +43,7 @@ func NewJWTIssuer(cfg JwtConfig) *JwtIssuer {
 	}
 }
 
+// Issue generates a new JWT token with the given user claims
 func (ti *JwtIssuer) Issue(claims UserClaims) (string, error) {
 	tk, err := jwt.NewWithClaims(jwt.GetSigningMethod(ti.algorithm), jwtClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -61,6 +66,7 @@ func (ti *JwtIssuer) Issue(claims UserClaims) (string, error) {
 	return tk, nil
 }
 
+// Validate verifies the given JWT token and returns the user claims
 func (ti *JwtIssuer) Validate(tokenStr string) (UserClaims, error) {
 	tok, err := jwt.ParseWithClaims(tokenStr, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if token.Method.Alg() != ti.algorithm {

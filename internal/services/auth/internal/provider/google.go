@@ -16,11 +16,13 @@ const (
 	googleScopeProfile string = "profile"
 )
 
+// Google implements the identityProvider interface for Google OAuth
 type Google struct {
 	cfg      *oauth2.Config
 	verifier *oidc.IDTokenVerifier
 }
 
+// GoogleConfig holds the configuration for the Google OAuth provider
 type GoogleConfig struct {
 	ClientID     string
 	ClientSecret string
@@ -35,6 +37,7 @@ type userClaims struct {
 	Picture  string `json:"picture,omitempty"`
 }
 
+// NewGoogle creates a new Google OAuth provider with the given configuration
 func NewGoogle(ctx context.Context, google GoogleConfig) (*Google, error) {
 	p, err := oidc.NewProvider(ctx, "https://accounts.google.com")
 	if err != nil {
@@ -53,10 +56,12 @@ func NewGoogle(ctx context.Context, google GoogleConfig) (*Google, error) {
 	}, nil
 }
 
+// LoginURL generates the Google OAuth login URL with the given state
 func (g *Google) LoginURL(state string) (string, error) {
 	return g.cfg.AuthCodeURL(state), nil
 }
 
+// Exchange exchanges the authorization code for an OAuth user
 func (g *Google) Exchange(ctx context.Context, code string) (oauth.User, error) {
 	tok, err := g.cfg.Exchange(ctx, code)
 	if err != nil {
@@ -83,6 +88,7 @@ func (g *Google) Exchange(ctx context.Context, code string) (oauth.User, error) 
 	}, nil
 }
 
+// nameOrDefault returns the user's name if it's not empty; otherwise, it returns the default name
 func nameOrDefault(name, def string) string {
 	if name != "" {
 		return name
@@ -90,6 +96,7 @@ func nameOrDefault(name, def string) string {
 	return def
 }
 
+// defaultName generates a default name based on the user's subject identifier
 func defaultName(usr userClaims) string {
 	id := sha1.New().Sum([]byte(usr.Sub))[:8]
 	return fmt.Sprintf("google_%x", id)

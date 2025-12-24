@@ -18,6 +18,7 @@ var (
 	ErrAuthFailed       = errors.New("auth failed")
 )
 
+// User represents an authenticated user from an identity provider
 type User struct {
 	ID            string
 	Email         string
@@ -26,6 +27,7 @@ type User struct {
 	Picture       string
 }
 
+// VerifiedEmail returns the user's email if it has been verified; otherwise, it returns an empty string
 func (u *User) VerifiedEmail() string {
 	if u.EmailVerified {
 		return u.Email
@@ -33,27 +35,32 @@ func (u *User) VerifiedEmail() string {
 	return ""
 }
 
+// Env represents a storage mechanism for saving and loading state values
 type Env interface {
 	Save(key, val string) error
 	Load(key string) (string, error)
 }
 
+// identityProvider defines the interface that each OAuth identity provider must implement
 type identityProvider interface {
 	LoginURL(state string) (string, error)
 	Exchange(ctx context.Context, code string) (User, error)
 }
 
+// Authenticator manages multiple OAuth identity providers and handles the authentication flow
 type Authenticator struct {
 	providers map[string]identityProvider
 	mu        sync.RWMutex
 }
 
+// NewAuthenticator creates a new Authenticator instance
 func NewAuthenticator() *Authenticator {
 	return &Authenticator{
 		providers: make(map[string]identityProvider),
 	}
 }
 
+// Use registers a new identity provider with the given name
 func (a *Authenticator) Use(name string, p identityProvider) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -66,6 +73,7 @@ func (a *Authenticator) Use(name string, p identityProvider) error {
 	return nil
 }
 
+// LoginURL generates a login URL for the specified provider and saves the state in the provided environment
 func (a *Authenticator) LoginURL(env Env, provider string) (string, error) {
 	p, err := a.getProvider(provider)
 	if err != nil {
@@ -85,6 +93,7 @@ func (a *Authenticator) LoginURL(env Env, provider string) (string, error) {
 	return url, nil
 }
 
+// Exchange exchanges the authorization code for user information after validating the state
 func (a *Authenticator) Exchange(ctx context.Context, env Env, provider, code, state string) (User, error) {
 	p, err := a.getProvider(provider)
 	if err != nil {
@@ -117,6 +126,7 @@ func (a *Authenticator) Exchange(ctx context.Context, env Env, provider, code, s
 	return usr, nil
 }
 
+// getProvider retrieves the identity provider by name
 func (a *Authenticator) getProvider(name string) (identityProvider, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -129,6 +139,7 @@ func (a *Authenticator) getProvider(name string) (identityProvider, error) {
 	return p, nil
 }
 
+// randState generates a random state string of the specified size
 func randState(size int) string {
 	b := make([]byte, size)
 

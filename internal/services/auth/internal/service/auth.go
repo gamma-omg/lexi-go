@@ -12,16 +12,19 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/token"
 )
 
+// tokenIssuer defines the interface for issuing and validating tokens
 type tokenIssuer interface {
 	Issue(claims token.UserClaims) (string, error)
 	Validate(token string) (token.UserClaims, error)
 }
 
+// authenticator defines the interface for OAuth authentication flow management
 type authenticator interface {
 	LoginURL(env oauth.Env, providerName string) (string, error)
 	Exchange(ctx context.Context, env oauth.Env, providerName, code, state string) (oauth.User, error)
 }
 
+// Auth handles OAuth authentication and token management
 type Auth struct {
 	auth         authenticator
 	store        store.Store
@@ -29,6 +32,7 @@ type Auth struct {
 	refreshToken tokenIssuer
 }
 
+// AuthOption defines a functional option for configuring the Auth service
 type AuthOption func(*Auth) *Auth
 
 func WithAuthenticator(a authenticator) AuthOption {
@@ -59,6 +63,7 @@ func WithRefreshToken(iss tokenIssuer) AuthOption {
 	}
 }
 
+// NewAuth creates a new Auth service with the provided options
 func NewAuth(opts ...AuthOption) *Auth {
 	s := &Auth{}
 	for _, opt := range opts {
@@ -84,6 +89,7 @@ func NewAuth(opts ...AuthOption) *Auth {
 	return s
 }
 
+// LoginURL generates a login URL for the specified provider
 func (s *Auth) LoginURL(providerName string, env oauth.Env) (string, error) {
 	url, err := s.auth.LoginURL(env, providerName)
 	if err != nil {
@@ -110,6 +116,7 @@ type AuthCallbackResponse struct {
 	RefreshToken string
 }
 
+// AuthCallback handles the OAuth callback, exchanges the code for user info, and issues tokens
 func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRequest) (resp *AuthCallbackResponse, err error) {
 	usr, err := s.auth.Exchange(ctx, env, r.Provider, r.Code, r.State)
 	if err != nil {
@@ -159,6 +166,7 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 	return
 }
 
+// Refresh issues a new access token using a valid refresh token
 func (a *Auth) Refresh(ctx context.Context, refreshToken string) (string, error) {
 	claims, err := a.refreshToken.Validate(refreshToken)
 	if err != nil {
@@ -187,6 +195,7 @@ func (a *Auth) Refresh(ctx context.Context, refreshToken string) (string, error)
 	return at, nil
 }
 
+// getOrCreateUser retrieves an existing user identity or creates a new user and identity
 func (s *Auth) getOrCreateUser(ctx context.Context, provider string, usr oauth.User) (store.Identity, error) {
 	id, err := s.store.GetIdentity(ctx, store.GetIdentityRequest{
 		ID:       usr.ID,

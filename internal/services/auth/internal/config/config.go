@@ -6,6 +6,7 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/pkg/env"
 )
 
+// Config holds the entire configuration for the auth service
 type Config struct {
 	HTTP  httpConfig
 	JWT   jwtConfig
@@ -49,6 +50,7 @@ type oauthConfig struct {
 	Google googleConfig
 }
 
+// FromEnv loads the configuration from environment variables
 func FromEnv() Config {
 	return Config{
 		HTTP: httpConfig{

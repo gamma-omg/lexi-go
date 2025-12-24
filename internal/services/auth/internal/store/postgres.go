@@ -9,11 +9,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// dbtx defines the interface for database and transactions
 type dbtx interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
+// PostgresConfig holds the configuration for connecting to a Postgres database
 type PostgresConfig struct {
 	Host     string
 	Port     string
@@ -22,10 +24,12 @@ type PostgresConfig struct {
 	DB       string
 }
 
+// PostgresStore implements the Store interface using a Postgres database
 type PostgresStore struct {
 	db dbtx
 }
 
+// NewPostgresDB creates a new Postgres database connection
 func NewPostgresDB(cfg PostgresConfig) (*sql.DB, error) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Host,
@@ -44,10 +48,12 @@ func NewPostgresDB(cfg PostgresConfig) (*sql.DB, error) {
 	return db, nil
 }
 
+// NewPostgresStore creates a new PostgresStore instance
 func NewPostgresStore(db *sql.DB) *PostgresStore {
 	return &PostgresStore{db: db}
 }
 
+// GetIdentity retrieves an identity by its ID and provider
 func (s *PostgresStore) GetIdentity(ctx context.Context, r GetIdentityRequest) (Identity, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT i.id, i.provider, i.email, i.name, i.picture, i.created_at, i.updated_at,
@@ -80,6 +86,7 @@ func (s *PostgresStore) GetIdentity(ctx context.Context, r GetIdentityRequest) (
 	return id, nil
 }
 
+// GetUserIdentity retrieves an identity by user UID and provider
 func (s *PostgresStore) GetUserIdentity(ctx context.Context, r GetUserIdentityRequest) (Identity, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT i.id, i.provider, i.email, i.name, i.picture, i.created_at, i.updated_at,
@@ -112,6 +119,7 @@ func (s *PostgresStore) GetUserIdentity(ctx context.Context, r GetUserIdentityRe
 	return id, nil
 }
 
+// CreateUser creates a new user and returns its ID
 func (s *PostgresStore) CreateUser(ctx context.Context) (int64, error) {
 	var id int64
 	err := s.db.QueryRowContext(ctx, "INSERT INTO users DEFAULT VALUES RETURNING id").Scan(&id)
@@ -122,6 +130,7 @@ func (s *PostgresStore) CreateUser(ctx context.Context) (int64, error) {
 	return id, nil
 }
 
+// CreateUserIdentity creates a new user identity and returns its ID
 func (s *PostgresStore) CreateUserIdentity(ctx context.Context, r CreateUserIdentityRequest) (string, error) {
 	var id string
 	err := s.db.QueryRowContext(ctx, "INSERT INTO identities (id, user_id, provider, email, name, picture) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
@@ -139,6 +148,7 @@ func (s *PostgresStore) CreateUserIdentity(ctx context.Context, r CreateUserIden
 	return id, nil
 }
 
+// WithTx executes the given function within a database transaction
 func (s *PostgresStore) WithTx(ctx context.Context, fn func(tx Store) error) error {
 	db, ok := s.db.(*sql.DB)
 	if !ok {
@@ -164,9 +174,4 @@ func (s *PostgresStore) WithTx(ctx context.Context, fn func(tx Store) error) err
 	}
 
 	return nil
-}
-
-type GetUserWithIdentityRequest struct {
-	IdentityID int64
-	Provider   string
 }
