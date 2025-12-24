@@ -29,7 +29,11 @@ func TestPOSTUpload(t *testing.T) {
 			return &url.URL{Scheme: "https", Host: "images.example.com", Path: "/image123.jpg"}, nil
 		},
 	}
-	api := NewAPI(srv, 10<<20, t.TempDir())
+	api := NewAPI(
+		WithImageService(srv),
+		WithMaxImageSize(10<<20),
+		WithContentRoot(t.TempDir()),
+	)
 
 	rec := test.SendFile(t, api, "POST", "/upload", test.TestFile{
 		Name:      "test.jpg",
@@ -45,7 +49,11 @@ func TestPOSTUpload(t *testing.T) {
 
 func TestGETImage(t *testing.T) {
 	root := t.TempDir()
-	api := NewAPI(&mockImageService{}, 10<<20, root)
+	api := NewAPI(
+		WithImageService(&mockImageService{}),
+		WithMaxImageSize(10<<20),
+		WithContentRoot(root),
+	)
 
 	err := os.WriteFile(filepath.Join(root, "test.jpg"), []byte("test image content"), 0644)
 	require.NoError(t, err)

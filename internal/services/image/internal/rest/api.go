@@ -13,6 +13,29 @@ type imageService interface {
 	Upload(img io.Reader) (*url.URL, error)
 }
 
+type APIOption func(*API) *API
+
+func WithImageService(srv imageService) APIOption {
+	return func(api *API) *API {
+		api.srv = srv
+		return api
+	}
+}
+
+func WithMaxImageSize(size int64) APIOption {
+	return func(api *API) *API {
+		api.maxImgSize = size
+		return api
+	}
+}
+
+func WithContentRoot(root string) APIOption {
+	return func(api *API) *API {
+		api.contentRoot = root
+		return api
+	}
+}
+
 type API struct {
 	srv         imageService
 	maxImgSize  int64
@@ -20,12 +43,17 @@ type API struct {
 	mux         *http.ServeMux
 }
 
-func NewAPI(srv imageService, maxImgSize int64, contentRoot string) *API {
+func NewAPI(opts ...APIOption) *API {
 	api := &API{
-		srv:         srv,
-		maxImgSize:  maxImgSize,
-		contentRoot: contentRoot,
-		mux:         http.NewServeMux(),
+		mux: http.NewServeMux(),
+	}
+
+	for _, opt := range opts {
+		api = opt(api)
+	}
+
+	if api.srv == nil {
+		panic("image service is required")
 	}
 
 	api.mount()
