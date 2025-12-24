@@ -14,16 +14,17 @@ auth:
     access:
       ttl: 15m
       algorithm: "ES256"
-      privateKey: <file path>
+      privateKey: keys/jwt-access-private.pem
     refresh:
       ttl: 168h
       algorithm: "HS256"
-      key: <file path>
+      key: keys/jwt-refresh.key
 
-  google:
-    clientID: <Google client ID>
-    clientSecret: <Google client secret>
-    redirectURL: "http://localhost:8080/auth/google/callback"
+  oauth:
+    google:
+      clientID: <Google client ID>
+      clientSecret: <Google client secret>
+      redirectURL: "http://localhost:8080/auth/google/callback"
 
 container:
   image: "lexi-go/auth"
