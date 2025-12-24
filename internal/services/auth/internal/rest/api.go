@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/httpx"
@@ -8,12 +10,18 @@ import (
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/service"
 )
 
+type authService interface {
+	LoginURL(provider string, env oauth.Env) (string, error)
+	AuthCallback(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error)
+	Refresh(ctx context.Context, refreshToken string) (string, error)
+}
+
 type API struct {
-	srv *service.Auth
+	srv authService
 	mux *http.ServeMux
 }
 
-func NewAPI(srv *service.Auth) *API {
+func NewAPI(srv authService) *API {
 	api := &API{
 		srv: srv,
 		mux: http.NewServeMux(),
@@ -29,7 +37,7 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (a *API) mount() {
 	a.mux.HandleFunc("/auth/{provider}/login", a.handleLogin)
 	a.mux.HandleFunc("/auth/{provider}/callback", a.handleCallback)
-	a.mux.HandleFunc("/refresh", a.handleRefresh)
+	a.mux.HandleFunc("POST /refresh", a.handleRefresh)
 }
 
 func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +92,7 @@ type refreshResponse struct {
 func (a *API) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req refreshRequest
 	if err := httpx.ReadJSON(r, &req); err != nil {
-		httpx.HandleErr(w, r, err)
+		httpx.HandleErr(w, r, fmt.Errorf("read request json: %w", err))
 		return
 	}
 
@@ -98,7 +106,7 @@ func (a *API) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		AccessToken: accessToken,
 	})
 	if err != nil {
-		httpx.HandleErr(w, r, err)
+		httpx.HandleErr(w, r, fmt.Errorf("write response json: %w", err))
 		return
 	}
 }

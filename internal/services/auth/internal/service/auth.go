@@ -117,27 +117,31 @@ type AuthCallbackResponse struct {
 }
 
 // AuthCallback handles the OAuth callback, exchanges the code for user info, and issues tokens
-func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRequest) (resp *AuthCallbackResponse, err error) {
+func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRequest) (resp AuthCallbackResponse, err error) {
 	usr, err := s.auth.Exchange(ctx, env, r.Provider, r.Code, r.State)
 	if err != nil {
 		if errors.Is(err, oauth.ErrProviderNotFound) {
 			sErr := serr.NewServiceError(err, http.StatusNotFound, "provider not found")
 			sErr.Env["provider"] = r.Provider
-			return nil, sErr
+			err = sErr
+			return
 		}
 
 		if errors.Is(err, oauth.ErrAuthFailed) {
 			sErr := serr.NewServiceError(err, http.StatusUnauthorized, "authentication failed")
 			sErr.Env["provider"] = r.Provider
-			return nil, sErr
+			err = sErr
+			return
 		}
 
-		return nil, fmt.Errorf("exchange: %w", err)
+		err = fmt.Errorf("exchange: %w", err)
+		return
 	}
 
 	id, err := s.getOrCreateUser(ctx, r.Provider, usr)
 	if err != nil {
-		return nil, fmt.Errorf("get or create user %w", err)
+		err = fmt.Errorf("get or create user: %w", err)
+		return
 	}
 
 	at, atErr := s.accessToken.Issue(token.UserClaims{
@@ -148,7 +152,8 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 		Picture:  id.Picture,
 	})
 	if atErr != nil {
-		return nil, fmt.Errorf("issue access token: %w", atErr)
+		err = fmt.Errorf("issue access token: %w", atErr)
+		return
 	}
 
 	rt, rtErr := s.refreshToken.Issue(token.UserClaims{
@@ -156,10 +161,11 @@ func (s *Auth) AuthCallback(ctx context.Context, env oauth.Env, r AuthCallbackRe
 		Type: token.TypeRefresh,
 	})
 	if rtErr != nil {
-		return nil, fmt.Errorf("issue refresh token: %w", rtErr)
+		err = fmt.Errorf("issue refresh token: %w", rtErr)
+		return
 	}
 
-	resp = &AuthCallbackResponse{
+	resp = AuthCallbackResponse{
 		AccessToken:  at,
 		RefreshToken: rt,
 	}
