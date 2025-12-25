@@ -35,8 +35,8 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) mount() {
-	a.mux.HandleFunc("/auth/{provider}/login", a.handleLogin)
-	a.mux.HandleFunc("/auth/{provider}/callback", a.handleCallback)
+	a.mux.HandleFunc("/{provider}/login", a.handleLogin)
+	a.mux.HandleFunc("/{provider}/callback", a.handleCallback)
 	a.mux.HandleFunc("POST /refresh", a.handleRefresh)
 }
 

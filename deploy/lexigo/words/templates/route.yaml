@@ -1,0 +1,29 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: lexigo-words-strip-prefix
+  namespace: lexigo
+spec:
+  stripPrefix:
+    prefixes:
+      - /words
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: lexigo-words-route
+  namespace: lexigo
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: PathPrefix(`/words`)
+      kind: Rule
+      middlewares:
+        - name: lexigo-words-strip-prefix
+      services:
+        - name: lexigo-words
+          port: {{ .Values.words.http.listenPort }}
+  tls:
+    secretName: lexigo-tls

@@ -4,15 +4,15 @@ metadata:
   name: lexigo-auth-config
   namespace: lexigo
 data:
-  HTTP_LISTEN_ADDR: "{{ .Values.auth.http.listenAddr }}"
-  DB_HOST: "{{ .Values.auth.db.host }}"
-  DB_PORT: "{{ .Values.auth.db.port }}"
-  DB_USER: "{{ .Values.auth.db.user }}"
-  DB_PASSWORD: "{{ .Values.auth.db.password }}"
-  DB_NAME: "{{ .Values.auth.db.name }}"
-  JWT_ISSUER: "{{ .Values.auth.jwt.issuer }}"
-  JWT_ACCESS_TTL: "{{ .Values.auth.jwt.access.ttl }}"
-  JWT_REFRESH_TTL: "{{ .Values.auth.jwt.refresh.ttl }}"
-  JWT_ALGORITHM_ACCESS: "{{ .Values.auth.jwt.access.algorithm }}"
-  JWT_ALGORITHM_REFRESH: "{{ .Values.auth.jwt.refresh.algorithm }}"
-  OAUTH_GOOGLE_REDIRECT_URL: "{{ .Values.auth.oauth.google.redirectURL }}"
+  HTTP_LISTEN_PORT: {{ .Values.auth.http.listenPort | quote }}
+  DB_HOST: {{ .Values.auth.db.host | quote }}
+  DB_PORT: {{ .Values.auth.db.port | quote }}
+  DB_USER: {{ .Values.auth.db.user | quote }}
+  DB_PASSWORD: {{ .Values.auth.db.password | quote }}
+  DB_NAME: {{ .Values.auth.db.name | quote }}
+  JWT_ISSUER: {{ .Values.auth.jwt.issuer | quote }}
+  JWT_ACCESS_TTL: {{ .Values.auth.jwt.access.ttl | quote }}
+  JWT_REFRESH_TTL: {{ .Values.auth.jwt.refresh.ttl | quote }}
+  JWT_ALGORITHM_ACCESS: {{ .Values.auth.jwt.access.algorithm | quote }}
+  JWT_ALGORITHM_REFRESH: {{ .Values.auth.jwt.refresh.algorithm | quote }}
+  OAUTH_GOOGLE_REDIRECT_URL: {{ .Values.auth.oauth.google.redirectURL | quote }}

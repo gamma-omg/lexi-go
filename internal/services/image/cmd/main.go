@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -38,11 +39,15 @@ func run(ctx context.Context) error {
 	auth := r.SubRouter("/api/v1/")
 	auth.Use(middleware.Auth(cfg.AuthSecret))
 
-	api := rest.NewAPI(srv, cfg.ImageStore.MaxSize, cfg.ImageStore.Root)
+	api := rest.NewAPI(
+		rest.WithImageService(srv),
+		rest.WithMaxImageSize(cfg.ImageStore.MaxSize),
+		rest.WithContentRoot(cfg.ImageStore.Root),
+	)
 	r.Handle("/", api)
 
 	httpSrv := &http.Server{
-		Addr:         cfg.HTTP.ListenAddr,
+		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.ListenAddr, cfg.HTTP.ListenPort),
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,

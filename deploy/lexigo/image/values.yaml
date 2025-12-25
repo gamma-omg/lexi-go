@@ -1,13 +1,13 @@
 image:
   http:
-    listenAddr: ":8080"
+    listenPort: 8080
 
   content:
-    serveRoot: "http://lexigo-image:8080"
+    serveRoot: http://lexigo-image:8080
     maxSize: 5242880
     maxWidth: 1024
     maxHeight: 1024
 
 container:
-  image: "lexi-go/image"
-  tag: "latest"
+  image: lexi-go/image
+  tag: latest

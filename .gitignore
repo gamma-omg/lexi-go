@@ -32,6 +32,8 @@ go.work.sum
 # .vscode/
 
 # Project specific ignores
-keys
 ignored
 deploy/**/values.*.yaml
+deploy/lexigo/auth/keys
+deploy/lexigo/common/keys
+deploy/lexigo/common/tls

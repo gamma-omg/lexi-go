@@ -40,7 +40,7 @@ func TestAPI_HandleLogin(t *testing.T) {
 	}
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/auth/google/login", nil)
+	req := httptest.NewRequest("GET", "/google/login", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 
@@ -58,7 +58,7 @@ func TestAPI_HandleLoginP_NotFound(t *testing.T) {
 
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/auth/unknown/login", nil)
+	req := httptest.NewRequest("GET", "/unknown/login", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 
@@ -77,7 +77,7 @@ func TestAPI_Callback(t *testing.T) {
 	}
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/auth/google/callback?code=test_code&state=test_state", nil)
+	req := httptest.NewRequest("GET", "/google/callback?code=test_code&state=test_state", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 
@@ -100,7 +100,7 @@ func TestAPI_Callback_AuthFailed(t *testing.T) {
 	}
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/auth/google/callback?code=invalid_code&state=invalid_state", nil)
+	req := httptest.NewRequest("GET", "/google/callback?code=invalid_code&state=invalid_state", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 

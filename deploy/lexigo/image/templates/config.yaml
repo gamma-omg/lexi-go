@@ -4,8 +4,8 @@ metadata:
   name: lexigo-image-config
   namespace: lexigo
 data:
-  HTTP_LISTEN_ADDR: "{{ .Values.image.http.listenAddr }}"
-  IMAGE_SERVE_ROOT: "{{ .Values.image.content.serveRoot }}"
-  IMAGE_MAX_SIZE: "{{ .Values.image.content.maxSize }}"
-  IMAGE_MAX_WIDTH: "{{ .Values.image.content.maxWidth }}"
-  IMAGE_MAX_HEIGHT: "{{ .Values.image.content.maxHeight }}"
+  HTTP_LISTEN_PORT: {{ .Values.image.http.listenPort | quote }}
+  IMAGE_SERVE_ROOT: {{ .Values.image.content.serveRoot | quote }}
+  IMAGE_MAX_SIZE: {{ .Values.image.content.maxSize | quote }}
+  IMAGE_MAX_WIDTH: {{ .Values.image.content.maxWidth | quote }}
+  IMAGE_MAX_HEIGHT: {{ .Values.image.content.maxHeight | quote }}

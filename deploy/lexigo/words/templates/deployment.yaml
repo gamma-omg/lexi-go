@@ -17,7 +17,7 @@ spec:
           image: "{{ .Values.container.image }}:{{ .Values.container.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: {{ .Values.words.http.listenPort }}
           envFrom:
             - configMapRef:
                 name: lexigo-words-config

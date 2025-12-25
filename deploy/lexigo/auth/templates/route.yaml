@@ -1,0 +1,29 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: lexigo-auth-strip-prefix
+  namespace: lexigo
+spec:
+  stripPrefix:
+    prefixes:
+      - /auth
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: lexigo-auth-route
+  namespace: lexigo
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: PathPrefix(`/auth`)
+      kind: Rule
+      middlewares:
+        - name: lexigo-auth-strip-prefix
+      services:
+        - name: lexigo-auth
+          port: {{ .Values.auth.http.listenPort }}
+  tls:
+    secretName: lexigo-tls

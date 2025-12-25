@@ -1,22 +1,22 @@
 words:
   http:
-    listenAddr: ":8080"
+    listenPort: 8080
 
   db:
-    host: "lexigo-words-db"
+    host: lexigo-words-db
     port: 5432
-    user: "pg-user"
-    password: "pg-pass"
-    name: "words_db"
+    user: pg-user
+    password: pg-pass
+    name: words_db
 
   deps:
-    imageService: "http://lexigo-image:8080"
+    imageService: http://lexigo-image:8080
 
 container:
-  image: "lexi-go/words"
-  tag: "latest"
+  image: lexi-go/words
+  tag: latest
 
 migrator:
-  image: "lexi-go/words-db-migrations"
-  tag: "latest"
-  databaseUrl: "postgres://pg-user:pg-pass@lexigo-words-db:5432/words_db?sslmode=disable"
+  image: lexi-go/words-db-migrations
+  tag: latest
+  databaseUrl: postgres://pg-user:pg-pass@lexigo-words-db:5432/words_db?sslmode=disable

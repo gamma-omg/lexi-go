@@ -4,10 +4,10 @@ metadata:
   name: lexigo-words-config
   namespace: lexigo
 data:
-  HTTP_LISTEN_ADDR: "{{ .Values.words.http.listenAddr }}"
-  IMAGE_SERVICE: "{{ .Values.words.deps.imageService }}"
-  DB_HOST: "{{ .Values.words.db.host }}"
-  DB_PORT: "{{ .Values.words.db.port }}"
-  DB_USER: "{{ .Values.words.db.user }}"
-  DB_PASSWORD: "{{ .Values.words.db.password }}"
-  DB_NAME: "{{ .Values.words.db.name }}"
+  HTTP_LISTEN_PORT: {{ .Values.words.http.listenPort | quote }}
+  IMAGE_SERVICE: {{ .Values.words.deps.imageService | quote }}
+  DB_HOST: {{ .Values.words.db.host | quote }}
+  DB_PORT: {{ .Values.words.db.port | quote }}
+  DB_USER: {{ .Values.words.db.user | quote }}
+  DB_PASSWORD: {{ .Values.words.db.password | quote }}
+  DB_NAME: {{ .Values.words.db.name | quote }}

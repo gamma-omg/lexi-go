@@ -10,5 +10,5 @@ spec:
   type: ClusterIP
   ports:
     - protocol: TCP
-      port: 8080
-      targetPort: 8080
+      port: {{ .Values.image.http.listenPort }}
+      targetPort: {{ .Values.image.http.listenPort }}

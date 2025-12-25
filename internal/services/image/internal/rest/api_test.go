@@ -58,7 +58,7 @@ func TestGETImage(t *testing.T) {
 	err := os.WriteFile(filepath.Join(root, "test.jpg"), []byte("test image content"), 0644)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("GET", "/image/test.jpg", nil)
+	req, err := http.NewRequest("GET", "/test.jpg", nil)
 	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()

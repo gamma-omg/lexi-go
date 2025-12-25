@@ -9,7 +9,8 @@ import (
 )
 
 func TestFromEnv(t *testing.T) {
-	t.Setenv("HTTP_LISTEN_ADDR", ":9090")
+	t.Setenv("HTTP_LISTEN_ADDR", "localhost")
+	t.Setenv("HTTP_LISTEN_PORT", "9090")
 	t.Setenv("HTTP_READ_TIMEOUT", "45s")
 	t.Setenv("HTTP_WRITE_TIMEOUT", "45s")
 	t.Setenv("HTTP_IDLE_TIMEOUT", "90s")
@@ -32,7 +33,8 @@ func TestFromEnv(t *testing.T) {
 
 	cfg := config.FromEnv()
 
-	assert.Equal(t, ":9090", cfg.HTTP.ListenAddr)
+	assert.Equal(t, "localhost", cfg.HTTP.ListenAddr)
+	assert.Equal(t, 9090, cfg.HTTP.ListenPort)
 	assert.Equal(t, 45*time.Second, cfg.HTTP.ReadTimeout)
 	assert.Equal(t, 45*time.Second, cfg.HTTP.WriteTimeout)
 	assert.Equal(t, 90*time.Second, cfg.HTTP.IdleTimeout)
@@ -61,7 +63,8 @@ func TestFromEnv_Defaults(t *testing.T) {
 	t.Setenv("OAUTH_GOOGLE_CLIENT_SECRET", "secret")
 	cfg := config.FromEnv()
 
-	assert.Equal(t, ":8080", cfg.HTTP.ListenAddr)
+	assert.Equal(t, "", cfg.HTTP.ListenAddr)
+	assert.Equal(t, 8080, cfg.HTTP.ListenPort)
 	assert.Equal(t, 30*time.Second, cfg.HTTP.ReadTimeout)
 	assert.Equal(t, 30*time.Second, cfg.HTTP.WriteTimeout)
 	assert.Equal(t, 60*time.Second, cfg.HTTP.IdleTimeout)

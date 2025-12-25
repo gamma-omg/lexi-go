@@ -68,7 +68,7 @@ func (api *API) mount() {
 	fs := http.FileServer(http.Dir(api.contentRoot))
 
 	api.mux.HandleFunc("POST /upload", api.handleUploadImage)
-	api.mux.Handle("GET /image/", http.StripPrefix("/image/", fs))
+	api.mux.Handle("GET /", fs)
 }
 
 type uploadImageResponse struct {

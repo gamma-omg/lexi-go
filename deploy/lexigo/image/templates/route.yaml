@@ -1,0 +1,29 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: lexigo-image-strip-prefix
+  namespace: lexigo
+spec:
+  stripPrefix:
+    prefixes:
+      - /image
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: lexigo-image-route
+  namespace: lexigo
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: PathPrefix(`/image`)
+      kind: Rule
+      middlewares:
+        - name: lexigo-image-strip-prefix
+      services:
+        - name: lexigo-image
+          port: {{ .Values.image.http.listenPort }}
+  tls:
+    secretName: lexigo-tls

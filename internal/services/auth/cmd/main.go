@@ -66,7 +66,7 @@ func run(ctx context.Context) error {
 	mux.Handle("/api/v1/", api)
 
 	httpSrv := &http.Server{
-		Addr:         cfg.HTTP.ListenAddr,
+		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.ListenAddr, cfg.HTTP.ListenPort),
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,

@@ -1,3 +1,7 @@
 auth:
   jwt:
-    publicKey: <file path>
+    publicKey: keys/jwt-access-public.pem
+
+tls:
+  cert: tls/cert.crt
+  key: tls/key.pem

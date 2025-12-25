@@ -16,6 +16,7 @@ type Config struct {
 
 type httpConfig struct {
 	ListenAddr      string
+	ListenPort      int
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
@@ -54,7 +55,8 @@ type oauthConfig struct {
 func FromEnv() Config {
 	return Config{
 		HTTP: httpConfig{
-			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ":8080"),
+			ListenAddr:      env.String("HTTP_LISTEN_ADDR", ""),
+			ListenPort:      env.Int("HTTP_LISTEN_PORT", 8080),
 			ReadTimeout:     env.Duration("HTTP_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout:    env.Duration("HTTP_WRITE_TIMEOUT", 30*time.Second),
 			IdleTimeout:     env.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
