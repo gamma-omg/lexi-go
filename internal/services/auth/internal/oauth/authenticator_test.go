@@ -9,12 +9,12 @@ import (
 )
 
 type mockIdentityProvider struct {
-	loginFunc    func(state string) (string, error)
+	loginFunc    func(state, nonce string) (string, error)
 	exchangeFunc func(ctx context.Context, code string) (User, error)
 }
 
-func (m *mockIdentityProvider) LoginURL(state string) (string, error) {
-	return m.loginFunc(state)
+func (m *mockIdentityProvider) LoginURL(state, nonce string) (string, error) {
+	return m.loginFunc(state, nonce)
 }
 
 func (m *mockIdentityProvider) Exchange(ctx context.Context, code string) (User, error) {
@@ -60,7 +60,7 @@ func (m *mockEnv) Load(key string) (string, error) {
 func TestAuthenticator_LoginURL(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "test_url", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -68,7 +68,7 @@ func TestAuthenticator_LoginURL(t *testing.T) {
 		},
 	})
 
-	url, err := a.LoginURL(newMemEnv(), "test")
+	url, err := a.LoginURL(newMemEnv(), "test", "some_state", "some_nonce")
 	require.NoError(t, err)
 	require.Equal(t, "test_url", url)
 }
@@ -76,7 +76,7 @@ func TestAuthenticator_LoginURL(t *testing.T) {
 func TestAuthenticator_LoginURL_ProviderNotFound(t *testing.T) {
 	a := NewAuthenticator()
 
-	_, err := a.LoginURL(newMemEnv(), "non_existent")
+	_, err := a.LoginURL(newMemEnv(), "non_existent", "state", "nonce")
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrProviderNotFound))
 }
@@ -84,7 +84,7 @@ func TestAuthenticator_LoginURL_ProviderNotFound(t *testing.T) {
 func TestAuthenticator_LoginURL_EnvSaveError(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "test_url", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -101,14 +101,14 @@ func TestAuthenticator_LoginURL_EnvSaveError(t *testing.T) {
 		},
 	}
 
-	_, err := a.LoginURL(brokenEnv, "test")
+	_, err := a.LoginURL(brokenEnv, "test", "state", "nonce")
 	require.Error(t, err)
 }
 
-func TestAuthenticator_LoginUREL_ProviderLoginError(t *testing.T) {
+func TestAuthenticator_LoginURL_ProviderLoginError(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "", errors.New("login error")
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -116,18 +116,19 @@ func TestAuthenticator_LoginUREL_ProviderLoginError(t *testing.T) {
 		},
 	})
 
-	_, err := a.LoginURL(newMemEnv(), "test")
+	_, err := a.LoginURL(newMemEnv(), "test", "some_state", "some_nonce")
 	require.Error(t, err)
 }
 
 func TestAuthenticator_Exchange(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
 			return User{
+				Nonce:         "valid_nonce",
 				ID:            "user123",
 				Email:         "test@example.com",
 				Name:          "Test User",
@@ -138,7 +139,10 @@ func TestAuthenticator_Exchange(t *testing.T) {
 	})
 
 	env := newMemEnv()
-	err := env.Save("test", "valid_state")
+	err := errors.Join(
+		env.Save("state", "valid_state"),
+		env.Save("nonce", "valid_nonce"),
+	)
 	require.NoError(t, err)
 
 	usr, err := a.Exchange(context.Background(), env, "test", "auth_code_123", "valid_state")
@@ -161,7 +165,7 @@ func TestAuthenticator_Exchange_ProviderNotFound(t *testing.T) {
 func TestAuthenticator_Exchange_EnvLoadError(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -185,7 +189,7 @@ func TestAuthenticator_Exchange_EnvLoadError(t *testing.T) {
 func TestAuthenticator_Exchange_StateMismatch(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -194,7 +198,10 @@ func TestAuthenticator_Exchange_StateMismatch(t *testing.T) {
 	})
 
 	env := newMemEnv()
-	err := env.Save("test", "expected_state")
+	err := errors.Join(
+		env.Save("state", "expected_state"),
+		env.Save("nonce", "expected_nonce"),
+	)
 	require.NoError(t, err)
 
 	_, err = a.Exchange(context.Background(), env, "test", "code", "wrong_state")
@@ -202,10 +209,114 @@ func TestAuthenticator_Exchange_StateMismatch(t *testing.T) {
 	require.True(t, errors.Is(err, ErrAuthFailed))
 }
 
+func TestAuthenticator_Exchange_ProviderMissingNonce(t *testing.T) {
+	a := NewAuthenticator()
+	a.Use("test", &mockIdentityProvider{
+		loginFunc: func(state, nonce string) (string, error) {
+			return "", nil
+		},
+		exchangeFunc: func(ctx context.Context, code string) (User, error) {
+			return User{
+				Nonce: "",
+			}, nil
+		},
+	})
+
+	env := newMemEnv()
+	err := errors.Join(
+		env.Save("state", "valid_state"),
+		env.Save("nonce", "valid_nonce"),
+	)
+	require.NoError(t, err)
+
+	_, err = a.Exchange(context.Background(), env, "test", "code", "valid_state")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrAuthFailed))
+}
+
+func TestAuthenticator_Exchange_EnvLoadNonceError(t *testing.T) {
+	a := NewAuthenticator()
+	a.Use("test", &mockIdentityProvider{
+		loginFunc: func(state, nonce string) (string, error) {
+			return "", nil
+		},
+		exchangeFunc: func(ctx context.Context, code string) (User, error) {
+			return User{
+				Nonce: "some_nonce",
+			}, nil
+		},
+	})
+
+	brokenEnv := &mockEnv{
+		saveFunc: func(key, val string) error {
+			return nil
+		},
+		loadFunc: func(key string) (string, error) {
+			if key == "nonce" {
+				return "", errors.New("load nonce error")
+			}
+			return "some_state", nil
+		},
+	}
+
+	_, err := a.Exchange(context.Background(), brokenEnv, "test", "code", "some_state")
+	require.Error(t, err)
+}
+
+func TestAutheticator_Exchange_InvalidNonce(t *testing.T) {
+	a := NewAuthenticator()
+	a.Use("test", &mockIdentityProvider{
+		loginFunc: func(state, nonce string) (string, error) {
+			return "", nil
+		},
+		exchangeFunc: func(ctx context.Context, code string) (User, error) {
+			return User{
+				Nonce: "invalid_nonce",
+			}, nil
+		},
+	})
+
+	env := newMemEnv()
+	err := errors.Join(
+		env.Save("state", "valid_state"),
+		env.Save("nonce", "expected_nonce"),
+	)
+	require.NoError(t, err)
+
+	_, err = a.Exchange(context.Background(), env, "test", "code", "valid_state")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrAuthFailed))
+}
+
+func TestAuthenticator_Exchange_ProviderNonceMismatch(t *testing.T) {
+	a := NewAuthenticator()
+	a.Use("test", &mockIdentityProvider{
+		loginFunc: func(state, nonce string) (string, error) {
+			return "", nil
+		},
+		exchangeFunc: func(ctx context.Context, code string) (User, error) {
+			return User{
+				Nonce: "wrong_nonce",
+			}, nil
+		},
+	})
+
+	env := newMemEnv()
+	err := errors.Join(
+		env.Save("state", "valid_state"),
+		env.Save("nonce", "valid_nonce"),
+	)
+	require.NoError(t, err)
+
+	_, err = a.Exchange(context.Background(), env, "test", "code", "valid_state")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrAuthFailed))
+}
+
 func TestAuthenticator_Exchange_ProviderExchangeError(t *testing.T) {
 	a := NewAuthenticator()
 	a.Use("test", &mockIdentityProvider{
-		loginFunc: func(state string) (string, error) {
+		loginFunc: func(state, nonce string) (string, error) {
 			return "", nil
 		},
 		exchangeFunc: func(ctx context.Context, code string) (User, error) {
@@ -214,7 +325,10 @@ func TestAuthenticator_Exchange_ProviderExchangeError(t *testing.T) {
 	})
 
 	env := newMemEnv()
-	err := env.Save("test", "valid_state")
+	err := errors.Join(
+		env.Save("state", "valid_state"),
+		env.Save("nonce", "valid_nonce"),
+	)
 	require.NoError(t, err)
 
 	_, err = a.Exchange(context.Background(), env, "test", "code", "valid_state")

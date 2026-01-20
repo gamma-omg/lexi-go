@@ -15,32 +15,37 @@ import (
 )
 
 type mockAuthService struct {
-	loginURLFunc     func(provider string, env oauth.Env) (string, error)
-	authCallbackFunc func(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error)
+	loginURLFunc     func(env oauth.Env, r service.LoginRequest) (string, error)
+	authCallbackFunc func(ctx context.Context, env oauth.Env, r service.AuthCallbackRequest) (service.AuthCallbackResponse, error)
 	refreshFunc      func(ctx context.Context, refreshToken string) (string, error)
+	redeemFunc       func(ctx context.Context, code string) (service.TokenPair, error)
 }
 
-func (m *mockAuthService) LoginURL(provider string, env oauth.Env) (string, error) {
-	return m.loginURLFunc(provider, env)
+func (m *mockAuthService) LoginURL(env oauth.Env, r service.LoginRequest) (string, error) {
+	return m.loginURLFunc(env, r)
 }
 
-func (m *mockAuthService) AuthCallback(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error) {
-	return m.authCallbackFunc(ctx, env, req)
+func (m *mockAuthService) AuthCallback(ctx context.Context, env oauth.Env, r service.AuthCallbackRequest) (service.AuthCallbackResponse, error) {
+	return m.authCallbackFunc(ctx, env, r)
 }
 
 func (m *mockAuthService) Refresh(ctx context.Context, refreshToken string) (string, error) {
 	return m.refreshFunc(ctx, refreshToken)
 }
 
+func (m *mockAuthService) RedeemCode(ctx context.Context, code string) (service.TokenPair, error) {
+	return m.redeemFunc(ctx, code)
+}
+
 func TestAPI_HandleLogin(t *testing.T) {
 	srv := &mockAuthService{
-		loginURLFunc: func(provider string, env oauth.Env) (string, error) {
+		loginURLFunc: func(env oauth.Env, r service.LoginRequest) (string, error) {
 			return "http://example.com/login", nil
 		},
 	}
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/google/login", nil)
+	req := httptest.NewRequest("GET", "/google/login?redirect_url=/redirect", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 
@@ -49,16 +54,16 @@ func TestAPI_HandleLogin(t *testing.T) {
 	assert.Equal(t, "http://example.com/login", resp.Header.Get("Location"))
 }
 
-func TestAPI_HandleLoginP_NotFound(t *testing.T) {
+func TestAPI_HandleLogin_ProviderNotFound(t *testing.T) {
 	srv := &mockAuthService{
-		loginURLFunc: func(provider string, env oauth.Env) (string, error) {
+		loginURLFunc: func(env oauth.Env, r service.LoginRequest) (string, error) {
 			return "", serr.NewServiceError(errors.New("test error"), http.StatusNotFound, "not found")
 		},
 	}
 
 	api := NewAPI(srv)
 
-	req := httptest.NewRequest("GET", "/unknown/login", nil)
+	req := httptest.NewRequest("GET", "/unknown/login?redirect_url=/redirect", nil)
 	rec := httptest.NewRecorder()
 	api.ServeHTTP(rec, req)
 
@@ -70,8 +75,7 @@ func TestAPI_Callback(t *testing.T) {
 	srv := &mockAuthService{
 		authCallbackFunc: func(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error) {
 			return service.AuthCallbackResponse{
-				AccessToken:  "access_token_value",
-				RefreshToken: "refresh_token_value",
+				RedirectURL: "http://example.com/redirect",
 			}, nil
 		},
 	}
@@ -82,20 +86,15 @@ func TestAPI_Callback(t *testing.T) {
 	api.ServeHTTP(rec, req)
 
 	resp := rec.Result()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.JSONEq(t,
-		`{
-			"access_token":"access_token_value",
-			"refresh_token":"refresh_token_value"
-		}`,
-		rec.Body.String(),
-	)
+	assert.Equal(t, http.StatusFound, resp.StatusCode)
+	assert.Equal(t, "http://example.com/redirect", resp.Header.Get("Location"))
 }
 
 func TestAPI_Callback_AuthFailed(t *testing.T) {
 	srv := &mockAuthService{
 		authCallbackFunc: func(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error) {
-			return service.AuthCallbackResponse{}, serr.NewServiceError(errors.New("auth failed"), http.StatusUnauthorized, "authentication failed")
+			return service.AuthCallbackResponse{},
+				serr.NewServiceError(errors.New("auth failed"), http.StatusUnauthorized, "authentication failed")
 		},
 	}
 	api := NewAPI(srv)
@@ -144,4 +143,30 @@ func TestAPI_HandleRefresh_Unauthorized(t *testing.T) {
 
 	resp := rec.Result()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestAPI_HandleRedeemCode(t *testing.T) {
+	srv := &mockAuthService{
+		redeemFunc: func(ctx context.Context, code string) (service.TokenPair, error) {
+			return service.TokenPair{
+				AccessToken:  "access_token_value",
+				RefreshToken: "refresh_token_value",
+			}, nil
+		},
+	}
+	api := NewAPI(srv)
+
+	req := httptest.NewRequest("POST", "/internal/redeem", strings.NewReader(`{"code":"valid_code"}`))
+	rec := httptest.NewRecorder()
+	api.ServeHTTP(rec, req)
+
+	resp := rec.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.JSONEq(t,
+		`{
+			"access_token":"access_token_value",
+			"refresh_token":"refresh_token_value"
+		}`,
+		rec.Body.String(),
+	)
 }

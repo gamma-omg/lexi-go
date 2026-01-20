@@ -2,18 +2,22 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gamma-omg/lexi-go/internal/pkg/httpx"
+	"github.com/gamma-omg/lexi-go/internal/pkg/serr"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/oauth"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/service"
 )
 
 type authService interface {
-	LoginURL(provider string, env oauth.Env) (string, error)
-	AuthCallback(ctx context.Context, env oauth.Env, req service.AuthCallbackRequest) (service.AuthCallbackResponse, error)
+	LoginURL(env oauth.Env, r service.LoginRequest) (string, error)
+	AuthCallback(ctx context.Context, env oauth.Env, r service.AuthCallbackRequest) (service.AuthCallbackResponse, error)
 	Refresh(ctx context.Context, refreshToken string) (string, error)
+	RedeemCode(ctx context.Context, code string) (service.TokenPair, error)
 }
 
 type API struct {
@@ -38,11 +42,21 @@ func (a *API) mount() {
 	a.mux.HandleFunc("/{provider}/login", a.handleLogin)
 	a.mux.HandleFunc("/{provider}/callback", a.handleCallback)
 	a.mux.HandleFunc("POST /refresh", a.handleRefresh)
+	a.mux.HandleFunc("POST /internal/redeem", a.handleRedeemCode)
 }
 
 func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
-	p := r.PathValue("provider")
-	url, err := a.srv.LoginURL(p, oauth.NewHTTPEnv(w, r))
+	p := readProvider(r, "provider")
+	redirectURL, err := readRedirectURL(r, "redirect_url")
+	if err != nil {
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid redirect url"))
+		return
+	}
+
+	url, err := a.srv.LoginURL(oauth.NewHTTPEnv(p, w, r), service.LoginRequest{
+		Provider:    p,
+		RedirectURL: redirectURL,
+	})
 	if err != nil {
 		httpx.HandleErr(w, r, err)
 		return
@@ -57,11 +71,11 @@ type callbackResponse struct {
 }
 
 func (a *API) handleCallback(w http.ResponseWriter, r *http.Request) {
-	p := r.PathValue("provider")
+	p := readProvider(r, "provider")
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 
-	resp, err := a.srv.AuthCallback(r.Context(), oauth.NewHTTPEnv(w, r), service.AuthCallbackRequest{
+	resp, err := a.srv.AuthCallback(r.Context(), oauth.NewHTTPEnv(p, w, r), service.AuthCallbackRequest{
 		Provider: p,
 		Code:     code,
 		State:    state,
@@ -71,14 +85,7 @@ func (a *API) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = httpx.WriteJSON(w, http.StatusOK, callbackResponse{
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-	})
-	if err != nil {
-		httpx.HandleErr(w, r, err)
-		return
-	}
+	http.Redirect(w, r, resp.RedirectURL, http.StatusFound)
 }
 
 type refreshRequest struct {
@@ -109,4 +116,52 @@ func (a *API) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		httpx.HandleErr(w, r, fmt.Errorf("write response json: %w", err))
 		return
 	}
+}
+
+type redeemCodeRequest struct {
+	Code string `json:"code"`
+}
+
+type redeemCodeResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (a *API) handleRedeemCode(w http.ResponseWriter, r *http.Request) {
+	var req redeemCodeRequest
+	if err := httpx.ReadJSON(r, &req); err != nil {
+		httpx.HandleErr(w, r, serr.NewServiceError(err, http.StatusBadRequest, "invalid request json"))
+		return
+	}
+
+	tokens, err := a.srv.RedeemCode(r.Context(), req.Code)
+	if err != nil {
+		httpx.HandleErr(w, r, err)
+		return
+	}
+
+	err = httpx.WriteJSON(w, http.StatusOK, redeemCodeResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
+	if err != nil {
+		httpx.HandleErr(w, r, fmt.Errorf("write response json: %w", err))
+		return
+	}
+}
+
+func readProvider(r *http.Request, name string) string {
+	p := r.PathValue(name)
+	p = strings.TrimSpace(p)
+	p = strings.ToLower(p)
+	return p
+}
+
+func readRedirectURL(r *http.Request, name string) (string, error) {
+	redirectURL := r.URL.Query().Get(name)
+	if redirectURL == "" {
+		return "", errors.New("redirect url must be relative")
+	}
+
+	return redirectURL, nil
 }

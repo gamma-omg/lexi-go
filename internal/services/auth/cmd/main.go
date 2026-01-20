@@ -11,6 +11,7 @@ import (
 
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/config"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/oauth"
+	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/otc"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/provider"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/rest"
 	"github.com/gamma-omg/lexi-go/internal/services/auth/internal/service"
@@ -41,9 +42,19 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to register oauth providers: %w", err)
 	}
 
+	otcProvider := otc.NewRedis(otc.RedisConfig{
+		Host:     cfg.RedisOTC.Host,
+		Port:     cfg.RedisOTC.Port,
+		Password: cfg.RedisOTC.Password,
+		DB:       cfg.RedisOTC.DB,
+		TTL:      cfg.RedisOTC.CodeTTL,
+	})
+	defer otcProvider.Close()
+
 	srv := service.NewAuth(
 		service.WithAuthenticator(auth),
 		service.WithStore(pgs),
+		service.WithOTC(otcProvider),
 		service.WithAccessToken(token.NewJWTIssuer(token.JwtConfig{
 			Secret: token.NewSecretString(cfg.JWT.AccessSecret),
 			TTL:    cfg.JWT.AccessTTL,

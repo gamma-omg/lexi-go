@@ -15,12 +15,12 @@ import (
 )
 
 type mockAuthenticator struct {
-	loginFunc    func(env oauth.Env, providerName string) (string, error)
+	loginFunc    func(env oauth.Env, providerName string, state, nonce string) (string, error)
 	exchangeFunc func(ctx context.Context, env oauth.Env, providerName, code, state string) (oauth.User, error)
 }
 
-func (m *mockAuthenticator) LoginURL(env oauth.Env, providerName string) (string, error) {
-	return m.loginFunc(env, providerName)
+func (m *mockAuthenticator) LoginURL(env oauth.Env, providerName string, state, nonce string) (string, error) {
+	return m.loginFunc(env, providerName, state, nonce)
 }
 
 func (m *mockAuthenticator) Exchange(ctx context.Context, env oauth.Env, providerName, code, state string) (oauth.User, error) {
@@ -91,19 +91,36 @@ func (m *mockEnv) Load(key string) (string, error) {
 	return m.loadFunc(key)
 }
 
+type mockOTC struct {
+	createCodeFunc func(ctx context.Context, ts TokenPair) (string, error)
+	redeemCodeFunc func(ctx context.Context, code string) (TokenPair, error)
+}
+
+func (m *mockOTC) CreateCode(ctx context.Context, ts TokenPair) (string, error) {
+	return m.createCodeFunc(ctx, ts)
+}
+
+func (m *mockOTC) RedeemCode(ctx context.Context, code string) (TokenPair, error) {
+	return m.redeemCodeFunc(ctx, code)
+}
+
 func TestAuth_LoginURL(t *testing.T) {
 	srv := NewAuth(
 		WithAuthenticator(&mockAuthenticator{
-			loginFunc: func(env oauth.Env, providerName string) (string, error) {
+			loginFunc: func(env oauth.Env, providerName string, state, nonce string) (string, error) {
 				return "http://example.com/login", nil
 			},
 		}),
 		WithStore(&mockStore{}),
 		WithAccessToken(&mockTokenIssuer{}),
 		WithRefreshToken(&mockTokenIssuer{}),
+		WithOTC(&mockOTC{}),
 	)
 
-	url, err := srv.LoginURL("google", newMockEnv())
+	url, err := srv.LoginURL(newMockEnv(), LoginRequest{
+		Provider:    "google",
+		RedirectURL: "/redirect",
+	})
 	require.NoError(t, err)
 	require.Equal(t, "http://example.com/login", url)
 }
@@ -111,16 +128,20 @@ func TestAuth_LoginURL(t *testing.T) {
 func TestAuth_LoginURL_ProviderNotFound(t *testing.T) {
 	srv := NewAuth(
 		WithAuthenticator(&mockAuthenticator{
-			loginFunc: func(env oauth.Env, providerName string) (string, error) {
+			loginFunc: func(env oauth.Env, providerName string, state, nonce string) (string, error) {
 				return "", oauth.ErrProviderNotFound
 			},
 		}),
 		WithStore(&mockStore{}),
 		WithAccessToken(&mockTokenIssuer{}),
 		WithRefreshToken(&mockTokenIssuer{}),
+		WithOTC(&mockOTC{}),
 	)
 
-	_, err := srv.LoginURL("unknown_provider", newMockEnv())
+	_, err := srv.LoginURL(newMockEnv(), LoginRequest{
+		Provider:    "unknown_provider",
+		RedirectURL: "/redirect",
+	})
 	require.Error(t, err)
 
 	var sErr *serr.ServiceError
@@ -134,8 +155,11 @@ func TestAuth_AuthCallback_UserExists(t *testing.T) {
 		WithAuthenticator(&mockAuthenticator{
 			exchangeFunc: func(ctx context.Context, env oauth.Env, providerName, code, state string) (oauth.User, error) {
 				return oauth.User{
-					ID:    "user123",
-					Email: "test@example.com",
+					ID:            "user123",
+					Email:         "test@example.com",
+					Name:          "Test User",
+					Picture:       "http://example.com/avatar.png",
+					EmailVerified: true,
 				}, nil
 			},
 		}),
@@ -144,6 +168,9 @@ func TestAuth_AuthCallback_UserExists(t *testing.T) {
 				return store.Identity{
 					ID:       r.ID,
 					Provider: r.Provider,
+					Name:     "Test User",
+					Email:    "test@example.com",
+					Picture:  "http://example.com/avatar.png",
 					User: store.User{
 						ID:  1,
 						UID: "uid-123",
@@ -161,17 +188,37 @@ func TestAuth_AuthCallback_UserExists(t *testing.T) {
 				return "refresh_token", nil
 			},
 		}),
+		WithOTC(&mockOTC{
+			createCodeFunc: func(ctx context.Context, ts TokenPair) (string, error) {
+				return "123", nil
+			},
+		}),
 	)
 
-	resp, err := srv.AuthCallback(context.Background(), newMockEnv(), AuthCallbackRequest{
+	env := &mockEnv{
+		loadFunc: func(key string) (string, error) {
+			if key == "redirect_url" {
+				return "/redirect", nil
+			}
+			return "", nil
+		},
+	}
+
+	resp, err := srv.AuthCallback(context.Background(), env, AuthCallbackRequest{
 		Provider: "google",
 		Code:     "auth_code_123",
-		State:    "state_123",
+		State:    "valid_state",
 	})
 	require.NoError(t, err)
 
+	assert.Equal(t, "uid-123", resp.UID)
+	assert.Equal(t, "Test User", resp.Name)
+	assert.Equal(t, "test@example.com", resp.Email)
+	assert.Equal(t, "http://example.com/avatar.png", resp.Picture)
 	assert.Equal(t, "access_token", resp.AccessToken)
 	assert.Equal(t, "refresh_token", resp.RefreshToken)
+	assert.Equal(t, "/redirect?otc=123", resp.RedirectURL)
+	assert.Equal(t, "123", resp.OTC)
 }
 
 func TestAuth_AuthCallback_NewUser(t *testing.T) {
@@ -227,17 +274,37 @@ func TestAuth_AuthCallback_NewUser(t *testing.T) {
 				return "refresh_token_new", nil
 			},
 		}),
+		WithOTC(&mockOTC{
+			createCodeFunc: func(ctx context.Context, ts TokenPair) (string, error) {
+				return "456", nil
+			},
+		}),
 	)
 
-	resp, err := srv.AuthCallback(context.Background(), newMockEnv(), AuthCallbackRequest{
+	env := &mockEnv{
+		loadFunc: func(key string) (string, error) {
+			if key == "redirect_url" {
+				return "/redirect", nil
+			}
+			return "", nil
+		},
+	}
+
+	resp, err := srv.AuthCallback(context.Background(), env, AuthCallbackRequest{
 		Provider: "google",
 		Code:     "auth_code",
 		State:    "valid_state",
 	})
 	require.NoError(t, err)
 
+	assert.Equal(t, "uid-456", resp.UID)
+	assert.Equal(t, "Test User", resp.Name)
+	assert.Equal(t, "http://example.com/avatar.png", resp.Picture)
+	assert.Equal(t, "test@example.com", resp.Email)
 	assert.Equal(t, "access_token_new", resp.AccessToken)
 	assert.Equal(t, "refresh_token_new", resp.RefreshToken)
+	assert.Equal(t, "/redirect?otc=456", resp.RedirectURL)
+	assert.Equal(t, "456", resp.OTC)
 
 	expectedID, ok := identities["user_identity_1"]
 	require.True(t, ok)
@@ -260,6 +327,7 @@ func TestAuth_AuthCallback_ProviderNotFound(t *testing.T) {
 		WithStore(&mockStore{}),
 		WithAccessToken(&mockTokenIssuer{}),
 		WithRefreshToken(&mockTokenIssuer{}),
+		WithOTC(&mockOTC{}),
 	)
 
 	_, err := srv.AuthCallback(context.Background(), newMockEnv(), AuthCallbackRequest{
@@ -285,6 +353,7 @@ func TestAuth_AuthCallback_AuthFailed(t *testing.T) {
 		WithStore(&mockStore{}),
 		WithAccessToken(&mockTokenIssuer{}),
 		WithRefreshToken(&mockTokenIssuer{}),
+		WithOTC(&mockOTC{}),
 	)
 
 	_, err := srv.AuthCallback(context.Background(), newMockEnv(), AuthCallbackRequest{
@@ -347,6 +416,11 @@ func TestAuth_AuthCallback_UnverifiedEmail(t *testing.T) {
 		WithRefreshToken(&mockTokenIssuer{issueFunc: func(claims token.UserClaims) (string, error) {
 			return "refresh_token", nil
 		}}),
+		WithOTC(&mockOTC{
+			createCodeFunc: func(ctx context.Context, ts TokenPair) (string, error) {
+				return "456", nil
+			},
+		}),
 	)
 
 	_, err := srv.AuthCallback(context.Background(), newMockEnv(), AuthCallbackRequest{
@@ -390,6 +464,7 @@ func TestAuth_Refresh(t *testing.T) {
 				}, nil
 			},
 		}),
+		WithOTC(&mockOTC{}),
 	)
 
 	accessToken, err := srv.Refresh(context.Background(), "valid_refresh_token")
@@ -402,6 +477,7 @@ func TestAuth_Refresh_InvalidToken(t *testing.T) {
 		WithAuthenticator(&mockAuthenticator{}),
 		WithStore(&mockStore{}),
 		WithAccessToken(&mockTokenIssuer{}),
+		WithOTC(&mockOTC{}),
 		WithRefreshToken(&mockTokenIssuer{
 			validateFunc: func(tokenStr string) (token.UserClaims, error) {
 				return token.UserClaims{}, fmt.Errorf("invalid refresh token")

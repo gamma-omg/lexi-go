@@ -30,6 +30,11 @@ func TestFromEnv(t *testing.T) {
 	t.Setenv("OAUTH_GOOGLE_CLIENT_ID", "google_client_id")
 	t.Setenv("OAUTH_GOOGLE_CLIENT_SECRET", "google_client_secret")
 	t.Setenv("OAUTH_GOOGLE_REDIRECT_URL", "http://localhost:9090/auth/google/callback")
+	t.Setenv("OTC_REDIS_HOST", "redishost")
+	t.Setenv("OTC_REDIS_PORT", "6380")
+	t.Setenv("OTC_REDIS_PASSWORD", "redispassword")
+	t.Setenv("OTC_REDIS_DB", "1")
+	t.Setenv("OTC_CODE_TTL", "15m")
 
 	cfg := config.FromEnv()
 
@@ -54,6 +59,11 @@ func TestFromEnv(t *testing.T) {
 	assert.Equal(t, "google_client_id", cfg.OAuth.Google.ClientID)
 	assert.Equal(t, "google_client_secret", cfg.OAuth.Google.ClientSecret)
 	assert.Equal(t, "http://localhost:9090/auth/google/callback", cfg.OAuth.Google.RedirectURL)
+	assert.Equal(t, "redishost", cfg.RedisOTC.Host)
+	assert.Equal(t, "6380", cfg.RedisOTC.Port)
+	assert.Equal(t, "redispassword", cfg.RedisOTC.Password)
+	assert.Equal(t, 1, cfg.RedisOTC.DB)
+	assert.Equal(t, 15*time.Minute, cfg.RedisOTC.CodeTTL)
 }
 
 func TestFromEnv_Defaults(t *testing.T) {
@@ -84,4 +94,9 @@ func TestFromEnv_Defaults(t *testing.T) {
 	assert.Equal(t, "client_id", cfg.OAuth.Google.ClientID)
 	assert.Equal(t, "secret", cfg.OAuth.Google.ClientSecret)
 	assert.Equal(t, "http://localhost:8080/auth/google/callback", cfg.OAuth.Google.RedirectURL)
+	assert.Equal(t, "localhost", cfg.RedisOTC.Host)
+	assert.Equal(t, "6379", cfg.RedisOTC.Port)
+	assert.Equal(t, "", cfg.RedisOTC.Password)
+	assert.Equal(t, 0, cfg.RedisOTC.DB)
+	assert.Equal(t, 10*time.Second, cfg.RedisOTC.CodeTTL)
 }

@@ -8,10 +8,11 @@ import (
 
 // Config holds the entire configuration for the auth service
 type Config struct {
-	HTTP  httpConfig
-	JWT   jwtConfig
-	DB    dbConfig
-	OAuth oauthConfig
+	HTTP     httpConfig
+	JWT      jwtConfig
+	DB       dbConfig
+	OAuth    oauthConfig
+	RedisOTC otcRedisConfig
 }
 
 type httpConfig struct {
@@ -51,6 +52,14 @@ type oauthConfig struct {
 	Google googleConfig
 }
 
+type otcRedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+	CodeTTL  time.Duration
+}
+
 // FromEnv loads the configuration from environment variables
 func FromEnv() Config {
 	return Config{
@@ -84,6 +93,13 @@ func FromEnv() Config {
 				ClientSecret: env.RequireString("OAUTH_GOOGLE_CLIENT_SECRET"),
 				RedirectURL:  env.String("OAUTH_GOOGLE_REDIRECT_URL", "http://localhost:8080/auth/google/callback"),
 			},
+		},
+		RedisOTC: otcRedisConfig{
+			Host:     env.String("OTC_REDIS_HOST", "localhost"),
+			Port:     env.String("OTC_REDIS_PORT", "6379"),
+			Password: env.String("OTC_REDIS_PASSWORD", ""),
+			DB:       env.Int("OTC_REDIS_DB", 0),
+			CodeTTL:  env.Duration("OTC_CODE_TTL", 10*time.Second),
 		},
 	}
 }

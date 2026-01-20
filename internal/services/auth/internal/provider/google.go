@@ -57,8 +57,8 @@ func NewGoogle(ctx context.Context, google GoogleConfig) (*Google, error) {
 }
 
 // LoginURL generates the Google OAuth login URL with the given state
-func (g *Google) LoginURL(state string) (string, error) {
-	return g.cfg.AuthCodeURL(state), nil
+func (g *Google) LoginURL(state, nonce string) (string, error) {
+	return g.cfg.AuthCodeURL(state, oidc.Nonce(nonce)), nil
 }
 
 // Exchange exchanges the authorization code for an OAuth user
@@ -80,6 +80,7 @@ func (g *Google) Exchange(ctx context.Context, code string) (oauth.User, error) 
 	}
 
 	return oauth.User{
+		Nonce:         idTok.Nonce,
 		ID:            usr.Sub,
 		Email:         usr.Email,
 		EmailVerified: usr.Verified,

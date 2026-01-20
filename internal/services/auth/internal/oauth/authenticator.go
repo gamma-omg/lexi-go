@@ -25,6 +25,7 @@ type User struct {
 	EmailVerified bool
 	Name          string
 	Picture       string
+	Nonce         string
 }
 
 // VerifiedEmail returns the user's email if it has been verified; otherwise, it returns an empty string
@@ -43,7 +44,7 @@ type Env interface {
 
 // identityProvider defines the interface that each OAuth identity provider must implement
 type identityProvider interface {
-	LoginURL(state string) (string, error)
+	LoginURL(state string, nonce string) (string, error)
 	Exchange(ctx context.Context, code string) (User, error)
 }
 
@@ -74,18 +75,20 @@ func (a *Authenticator) Use(name string, p identityProvider) error {
 }
 
 // LoginURL generates a login URL for the specified provider and saves the state in the provided environment
-func (a *Authenticator) LoginURL(env Env, provider string) (string, error) {
+func (a *Authenticator) LoginURL(env Env, provider string, state, nonce string) (string, error) {
 	p, err := a.getProvider(provider)
 	if err != nil {
 		return "", fmt.Errorf("get provider: %w", err)
 	}
 
-	state := randState(32)
-	if err = env.Save(provider, state); err != nil {
+	if err = env.Save("state", state); err != nil {
 		return "", fmt.Errorf("save state: %w", err)
 	}
+	if err = env.Save("nonce", nonce); err != nil {
+		return "", fmt.Errorf("save nonce: %w", err)
+	}
 
-	url, err := p.LoginURL(state)
+	url, err := p.LoginURL(state, nonce)
 	if err != nil {
 		return "", fmt.Errorf("get login url: %w", err)
 	}
@@ -100,27 +103,35 @@ func (a *Authenticator) Exchange(ctx context.Context, env Env, provider, code, s
 		return User{}, fmt.Errorf("get provider: %w", err)
 	}
 
-	saved, err := env.Load(provider)
+	savedState, err := env.Load("state")
 	if err != nil {
 		return User{}, fmt.Errorf("load state: %w", err)
 	}
 
-	if saved != state {
+	if savedState != state {
 		return User{}, ErrAuthFailed
 	}
 
 	usr, err := p.Exchange(ctx, code)
 	if err != nil {
 		var rerr *oauth2.RetrieveError
-		if errors.As(err, &rerr) {
-			if rerr.Response != nil {
-				if rerr.Response.StatusCode == http.StatusBadRequest || rerr.Response.StatusCode == http.StatusUnauthorized {
-					return User{}, ErrAuthFailed
-				}
+		if errors.As(err, &rerr) && rerr.Response != nil {
+			switch rerr.Response.StatusCode {
+			case http.StatusBadRequest, http.StatusUnauthorized:
+				return User{}, ErrAuthFailed
 			}
 		}
 
 		return User{}, fmt.Errorf("exchange: %w", err)
+	}
+
+	savedNonce, err := env.Load("nonce")
+	if err != nil {
+		return User{}, fmt.Errorf("load nonce: %w", err)
+	}
+
+	if usr.Nonce == "" || usr.Nonce != savedNonce {
+		return User{}, ErrAuthFailed
 	}
 
 	return usr, nil
@@ -139,8 +150,8 @@ func (a *Authenticator) getProvider(name string) (identityProvider, error) {
 	return p, nil
 }
 
-// randState generates a random state string of the specified size
-func randState(size int) string {
+// randString generates a random state string of the specified size
+func randString(size int) string {
 	b := make([]byte, size)
 
 	// rand.Read never returns an error

@@ -1,21 +1,25 @@
 package oauth
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 // HTTPEnv implements the Env interface using HTTP cookies
 type HTTPEnv struct {
-	w http.ResponseWriter
-	r *http.Request
+	scope string
+	w     http.ResponseWriter
+	r     *http.Request
 }
 
 // NewHTTPEnv creates a new HTTPEnv instance
-func NewHTTPEnv(w http.ResponseWriter, r *http.Request) *HTTPEnv {
-	return &HTTPEnv{w: w, r: r}
+func NewHTTPEnv(scope string, w http.ResponseWriter, r *http.Request) *HTTPEnv {
+	return &HTTPEnv{scope: scope, w: w, r: r}
 }
 
 func (e *HTTPEnv) Save(key, val string) error {
 	http.SetCookie(e.w, &http.Cookie{
-		Name:     key,
+		Name:     fmt.Sprintf("%s-%s", e.scope, key),
 		Value:    val,
 		HttpOnly: true,
 	})
@@ -23,7 +27,7 @@ func (e *HTTPEnv) Save(key, val string) error {
 }
 
 func (e *HTTPEnv) Load(key string) (string, error) {
-	c, err := e.r.Cookie(key)
+	c, err := e.r.Cookie(fmt.Sprintf("%s-%s", e.scope, key))
 	if err != nil {
 		return "", err
 	}
